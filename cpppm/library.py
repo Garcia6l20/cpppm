@@ -1,0 +1,22 @@
+from .target import Target
+
+
+class Library(Target):
+
+    static: bool = False
+
+    @property
+    def shared(self) -> bool:
+        return not self.static
+
+    @shared.setter
+    def shared(self, value: bool):
+        self.static = not value
+
+    @property
+    def type(self) -> str:
+        return 'STATIC' if self.static else 'SHARED'
+
+    @property
+    def command(self) -> str:
+        return 'add_library'

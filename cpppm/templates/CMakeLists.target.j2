@@ -1,0 +1,26 @@
+{{target.command}}({{target.name}} {{target.type}}
+{%- for source in target.sources %}
+    {{ source | to_source_dir }}
+{%- endfor %}
+)
+{% if target.include_dirs %}
+target_include_directories({{target.name}} PUBLIC
+{%- for include_dir in target.include_dirs %}
+    {{ include_dir }}
+{%- endfor %}
+)
+{% endif -%}
+{%- if target.compile_options %}
+target_compile_options({{target.name}} PUBLIC
+{%- for compile_option in target.compile_options %}
+    {{ compile_option }}
+{%- endfor %}
+)
+{% endif -%}
+{%- if target.link_libraries %}
+target_link_libraries({{target.name}} PUBLIC
+{%- for link_library in target.link_libraries %}
+    {{ link_library|to_library }}
+{%- endfor %}
+)
+{% endif -%}
