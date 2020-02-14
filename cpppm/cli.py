@@ -9,8 +9,15 @@ from .project import Project
 
 @click.group(invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Let me talk about me.')
+@click.option("--build-directory", "-b", default="build-cpppm",
+              help="Build directory, generated files should go there.")
 @click.pass_context
-def cli(ctx, verbose):
+def cli(ctx, verbose, build_directory):
+    if build_directory:
+        Project.set_build_path(Path(build_directory))
+        Project.build_path.mkdir(exist_ok=True)
+        if not Project.build_path.exists():
+            raise RuntimeError('Failed to create build directory: {build_directory}')
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     if ctx.invoked_subcommand is None:
@@ -31,16 +38,13 @@ def configure(ctx):
 
 
 @cli.command()
-@click.option("--build-directory", "-b", default="build",
-              help="Build directory, generated files should go there.")
-@click.argument("target", required=False, default="all")
+@click.argument("target", required=False)
 @click.pass_context
-def build(ctx, build_directory, target):
+def build(ctx, target):
     """Builds the project."""
-    build_directory = Path(build_directory)
     source_dir = Path(sys.argv[0]).parent
     click.echo(f"Source directory: {str(source_dir.absolute())}")
-    click.echo(f"Build directory: {str(build_directory.absolute())}")
+    click.echo(f"Build directory: {str(Project.build_path.absolute())}")
     click.echo(f"Project: {Project.root_project.name}")
     ctx.invoke(configure)
     Project.root_project.build(target)

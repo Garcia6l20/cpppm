@@ -1,15 +1,13 @@
 import inspect
 import os
-import stat
 from pathlib import Path
-import platform
 from typing import List, Union, final, cast
 import contextlib
 
 from .target import Target
 from .executable import Executable
 from .library import Library
-from . import _jenv, _logger
+from . import _jenv, _get_logger
 
 
 @contextlib.contextmanager
@@ -18,7 +16,7 @@ def working_directory(path: Path, create=True, *args, **kwargs):
     prev_cwd = Path.cwd()
     if create:
         path.mkdir(exist_ok=True)
-    os.chdir(str(path))
+    os.chdir(str(path.absolute()))
     try:
         yield
     finally:
@@ -30,10 +28,17 @@ class Project:
     root_project: 'Project' = None
     projects: List['Project'] = []
     dependencies: List[str] = []
-    build_path: Path = None
     main_target: Target = None
+    build_path: Path = None
+
+    @staticmethod
+    def set_build_path(path: Path):
+        for proj in Project.projects:
+            proj.build_path = path.absolute()
+        Project.build_path = path.absolute()
 
     def __init__(self, name):
+        self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
         module_frame = None
         for frame in stack_trace:
@@ -41,10 +46,11 @@ class Project:
                 module_frame = frame
                 break
         self.build_script = Path(module_frame[1])
-        self.root_path = self.build_script.parent
-        self.build_path = self.root_path.joinpath('build-cpppm')
-        self.bin_path = self.build_path.joinpath('bin')
-        self.lib_path = self.build_path.joinpath('lib')
+        self._root_path = self.build_script.parent.absolute()
+        self.build_path = Project.build_path or self._root_path.joinpath('build-cpppm')
+
+        self._logger.debug(f'Build dir: {self.build_path.absolute()}')
+        self._logger.debug(f'Source dir: {self.source_path.absolute()}')
 
         self.name = name
         self.libraries: List[Library] = []
@@ -52,6 +58,18 @@ class Project:
         if Project.root_project is None:
             Project.root_project = self
         Project.projects.append(self)
+
+    @property
+    def source_path(self):
+        return self._root_path
+
+    @property
+    def bin_path(self):
+        return self.build_path.joinpath('bin')
+
+    @property
+    def lib_path(self):
+        return self.build_path.joinpath('lib')
 
     def main_executable(self) -> Executable:
         """Add the default project executable (same name as project)
@@ -63,7 +81,7 @@ class Project:
 
     def executable(self, name) -> Executable:
         """Add an executable to the project"""
-        executable = Executable(name, self.root_path)
+        executable = Executable(name, self.source_path)
         self.executables.append(executable)
         return executable
 
@@ -76,7 +94,7 @@ class Project:
 
     def library(self, name) -> Library:
         """Add a library to the project"""
-        library = Library(name, self.root_path)
+        library = Library(name, self.source_path)
         self.libraries.append(library)
         return library
 
@@ -90,7 +108,7 @@ class Project:
         """Generates CMake stuff"""
 
         def to_source_dir(path: Union[Path, str]):
-            return path.relative_to(self.root_path).as_posix() if isinstance(path, Path) else path
+            return path.relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
 
         def to_library(lib: Union[Library, str]):
             return lib.name if type(lib) is Library else lib
@@ -100,19 +118,23 @@ class Project:
             "to_library": to_library,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')
-        lists_file = open(self.root_path / 'CMakeLists.txt', 'w')
+        lists_file = open(self.source_path / 'CMakeLists.txt', 'w')
         lists = jlists.render({'project': self})
-        _logger.debug(lists)
+        # self._logger.debug(lists)
         lists_file.write(lists)
 
-    def build(self, target: str = 'all'):
+    def build(self, target: str = None):
 
         @working_directory(self.build_path)
         def do_build():
-            os.system('pwd')
-            print(f'cmake {str(self.root_path.absolute())}')
-            os.system(f'cmake {str(self.root_path.absolute())}')
-            os.system(f'cmake --build . --target {target}')
+            self._logger.debug(f'Building: {self.name}')
+            self._logger.debug(f'Working dir: {Path.cwd().absolute()}')
+            os.system(f'cmake {str(self.source_path.absolute())}')
+            command = 'cmake --build .'
+            if target:
+                command += f' --target {target}'
+            self._logger.debug(f'running: "{command}"')
+            os.system(command)
         do_build()
 
     def run(self, target: str, *args):
@@ -126,7 +148,9 @@ class Project:
 
         @working_directory(self.bin_path)
         def do_run():
-            os.system(f'./{target.exe} {" ".join(*args)}')
+            self._logger.debug(f'Running: {target.exe}')
+            self._logger.debug(f'Working dir: {Path.cwd().absolute()}')
+            os.system(f'{target.exe} {" ".join(*args)}')
         do_run()
 
     def target(self, name: str) -> Target:

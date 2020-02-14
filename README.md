@@ -1,10 +1,10 @@
 # cpppm
-C++ Project manager
-
-## What is that
-cpppm is a C/C++ project manager that focus on flexibility.
+CPP Project Manager
 
 > Please note that I reference python as python3, python2 is dead and buried... RIP
+>
+## What is that
+cpppm is a C/C++ project manager that focus on flexibility.
 
 ### A basic example
 
