@@ -24,26 +24,38 @@ class PathList(list):
                 self.remove(path)
 
 
+class ListProperty(object):
+    """Overrides assignments of list-like objects"""
+
+    def __init__(self, inner_type=list):
+        self.type = inner_type
+        self.val = {}
+
+    def __get__(self, obj, _obj_type):
+        return self.val[obj]
+
+    def __set__(self, obj, val):
+        if isinstance(val, self.type):
+            self.val[obj] = val  # initialization
+        elif not isinstance(val, Iterable) or isinstance(val, str):
+            self.val[obj].append(val)
+        else:
+            self.val[obj].extend(val)
+
+
 class Target:
-    compile_options: List[str] = {}
-    include_dirs: List[str] = []
-    link_libraries: List[Union[str, 'Target']] = []
+    sources = ListProperty(PathList)
+    include_dirs = ListProperty()
+    link_libraries = ListProperty()
+    compile_options: ListProperty()
 
     def __init__(self, name: str, source_path: Path):
         super().__init__()
         self.name = name
-        self._sources = PathList(source_path)
-
-    @property
-    def sources(self):
-        return self._sources
-
-    @sources.setter
-    def sources(self, sources: Union[Iterable, str]):
-        if isinstance(sources, str):
-            self._sources.append(sources)
-        else:
-            self._sources.extend(sources)
+        self.sources = PathList(source_path)
+        self.include_dirs = []
+        self.link_libraries = []
+        self.compile_options = []
 
     @property
     def source_path(self):
