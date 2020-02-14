@@ -2,25 +2,13 @@ import inspect
 import os
 from pathlib import Path
 from typing import List, Union, final, cast
-import contextlib
 
-from .target import Target
+from cpppm.utils import Runner
+
+from . import _jenv, _get_logger
 from .executable import Executable
 from .library import Library
-from . import _jenv, _get_logger
-
-
-@contextlib.contextmanager
-def working_directory(path: Path, create=True, *args, **kwargs):
-    """Changes working directory and returns to previous on exit."""
-    prev_cwd = Path.cwd()
-    if create:
-        path.mkdir(exist_ok=True)
-    os.chdir(str(path.absolute()))
-    try:
-        yield
-    finally:
-        os.chdir(str(prev_cwd))
+from .target import Target
 
 
 @final
@@ -55,6 +43,9 @@ class Project:
         self.name = name
         self.libraries: List[Library] = []
         self.executables: List[Executable] = []
+
+        self.default_executable = None
+
         if Project.root_project is None:
             Project.root_project = self
         Project.projects.append(self)
@@ -124,34 +115,26 @@ class Project:
         lists_file.write(lists)
 
     def build(self, target: str = None):
-
-        @working_directory(self.build_path)
-        def do_build():
-            self._logger.debug(f'Building: {self.name}')
-            self._logger.debug(f'Working dir: {Path.cwd().absolute()}')
-            os.system(f'cmake {str(self.source_path.absolute())}')
-            command = 'cmake --build .'
-            if target:
-                command += f' --target {target}'
-            self._logger.debug(f'running: "{command}"')
-            os.system(command)
-        do_build()
+        runner = Runner("cmake", self.build_path)
+        runner.run(str(self.source_path.absolute()))
+        args = ['--build', '.']
+        if target:
+            args.extend(('--target', {target}))
+        runner.run(*args)
 
     def run(self, target: str, *args):
-
+        target = target or self.default_executable or self.main_target
         if target is None:
-            if self.main_target is None:
-                raise RuntimeError(r'No main target defined')
-            target = self.main_target.name
+            raise RuntimeError(r'No default executable defined')
 
-        target = self.target(target)
+        if not isinstance(target, Target):
+            target = self.target(target)
 
-        @working_directory(self.bin_path)
-        def do_run():
-            self._logger.debug(f'Running: {target.exe}')
-            self._logger.debug(f'Working dir: {Path.cwd().absolute()}')
-            os.system(f'{target.exe} {" ".join(*args)}')
-        do_run()
+        self._logger.debug(f'Build path: {self.build_path}')
+        self._logger.debug(f'Bin path: {self.bin_path}')
+
+        runner = Runner(target.exe, self.bin_path)
+        runner.run(*args)
 
     def target(self, name: str) -> Target:
         return next(filter(lambda t: t.name == name, self.targets))

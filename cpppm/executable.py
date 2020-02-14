@@ -15,4 +15,4 @@ class Executable(Target):
 
     @property
     def exe(self) -> str:
-        return self.name + '.exe' if platform.system() == 'Windows' else './' + self.name
+        return self.name if platform.system() == 'Windows' else './' + self.name

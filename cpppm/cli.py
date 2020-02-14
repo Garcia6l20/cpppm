@@ -60,9 +60,9 @@ def test(ctx):
 
 @cli.command()
 @click.argument("target")
-@click.argument("args", required=False, nargs=-1)
+@click.argument("args", required=False, nargs=-1, default=None)
 @click.pass_context
 def run(ctx, target, args):
     """Runs the given TARGET with given ARGS."""
     ctx.invoke(build)
-    Project.root_project.run(target, args)
+    Project.root_project.run(target, *args)
