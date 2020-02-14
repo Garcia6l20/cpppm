@@ -20,3 +20,7 @@ class Library(Target):
     @property
     def command(self) -> str:
         return 'add_library'
+
+    @property
+    def exe(self) -> str:
+        raise RuntimeError(f'{self.name} is not an executable')

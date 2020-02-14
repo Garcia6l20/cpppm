@@ -3,7 +3,7 @@ import os
 import stat
 from pathlib import Path
 import platform
-from typing import List, Union
+from typing import List, Union, final, cast
 import contextlib
 
 from .target import Target
@@ -25,12 +25,13 @@ def working_directory(path: Path, create=True, *args, **kwargs):
         os.chdir(str(prev_cwd))
 
 
+@final
 class Project:
-
     root_project: 'Project' = None
     projects: List['Project'] = []
     dependencies: List[str] = []
     build_path: Path = None
+    main_target: Target = None
 
     def __init__(self, name):
         stack_trace = inspect.stack()
@@ -55,9 +56,10 @@ class Project:
     def main_executable(self) -> Executable:
         """Add the default project executable (same name as project)
         """
-        if self.name in self.libraries:
+        if self.main_target is not None:
             raise RuntimeError("You cannot use both Project.main_library and Project.main_executable")
-        return self.executable(self.name)
+        self.main_target = self.executable(self.name)
+        return cast(Executable, self.main_target)
 
     def executable(self, name) -> Executable:
         """Add an executable to the project"""
@@ -67,9 +69,10 @@ class Project:
 
     def main_library(self) -> Library:
         """Add the default project library (same name as project)"""
-        if self.name in self.executables:
+        if self.main_target is not None:
             raise RuntimeError("You cannot use both Project.main_library and Project.main_executable")
-        return self.library(self.name)
+        self.main_target = self.library(self.name)
+        return cast(Library, self.main_target)
 
     def library(self, name) -> Library:
         """Add a library to the project"""
@@ -114,8 +117,17 @@ class Project:
 
     def run(self, target: str, *args):
 
+        if target is None:
+            if self.main_target is None:
+                raise RuntimeError(r'No main target defined')
+            target = self.main_target.name
+
+        target = self.target(target)
+
         @working_directory(self.bin_path)
         def do_run():
-            exe = target + '.exe' if platform.system() == 'Windows' else target
-            os.system(f'./{exe} {" ".join(*args)}')
+            os.system(f'./{target.exe} {" ".join(*args)}')
         do_run()
+
+    def target(self, name: str) -> Target:
+        return next(filter(lambda t: t.name == name, self.targets))

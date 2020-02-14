@@ -2,7 +2,7 @@ import re
 import fnmatch
 from collections import Iterable
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, final
 from abc import abstractmethod
 
 
@@ -27,12 +27,23 @@ class PathList(list):
 class Target:
     compile_options: List[str] = {}
     include_dirs: List[str] = []
-    link_libraries: Union[str, 'Target']
+    link_libraries: List[Union[str, 'Target']] = []
 
     def __init__(self, name: str, source_path: Path):
         super().__init__()
         self.name = name
-        self.sources = PathList(source_path)
+        self._sources = PathList(source_path)
+
+    @property
+    def sources(self):
+        return self._sources
+
+    @sources.setter
+    def sources(self, sources: Union[Iterable, str]):
+        if isinstance(sources, str):
+            self._sources.append(sources)
+        else:
+            self._sources.extend(sources)
 
     @property
     def source_path(self):
@@ -48,12 +59,7 @@ class Target:
     def type(self) -> str:
         return ''
 
-    def __setattr__(self, key, value):
-        if key == 'sources' and hasattr(self, 'sources'):
-            self.sources.clear()
-            if isinstance(value, Iterable):
-                self.sources.extend(value)
-            else:
-                self.sources.append(value)
-        else:
-            super().__setattr__(key, value)
+    @property
+    @abstractmethod
+    def exe(self) -> str:
+        raise NotImplementedError

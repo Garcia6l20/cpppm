@@ -14,7 +14,7 @@ def cli(ctx, verbose):
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     if ctx.invoked_subcommand is None:
-        ctx.invoke(build)
+        ctx.invoke(run)
 
 
 @cli.command()
