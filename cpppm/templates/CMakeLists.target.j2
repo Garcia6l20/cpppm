@@ -1,12 +1,12 @@
 {{target.command}}({{target.name}} {{target.type}}
 {%- for source in target.sources %}
-    {{ source | to_source_dir }}
+    {{ source.as_posix() }}
 {%- endfor %}
 )
 {% if target.include_dirs %}
 target_include_directories({{target.name}} PUBLIC
 {%- for include_dir in target.include_dirs %}
-    {{ include_dir }}
+    {{ include_dir.as_posix() }}
 {%- endfor %}
 )
 {% endif -%}

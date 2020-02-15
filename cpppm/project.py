@@ -1,9 +1,9 @@
 import inspect
-import os
 from pathlib import Path
 from typing import List, Union, final, cast
 
 from cpppm.utils import Runner
+# from conans.model.requires import ConanFileReference
 
 from . import _jenv, _get_logger
 from .executable import Executable
@@ -15,7 +15,6 @@ from .target import Target
 class Project:
     root_project: 'Project' = None
     projects: List['Project'] = []
-    dependencies: List[str] = []
     main_target: Target = None
     build_path: Path = None
 
@@ -41,8 +40,9 @@ class Project:
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
 
         self.name = name
-        self.libraries: List[Library] = []
-        self.executables: List[Executable] = []
+        self._libraries: List[Library] = []
+        self._executables: List[Executable] = []
+        self.requires: List[str] = []
 
         self.default_executable = None
 
@@ -62,50 +62,46 @@ class Project:
     def lib_path(self):
         return self.build_path.joinpath('lib')
 
-    def main_executable(self) -> Executable:
+    def main_executable(self, root: str = None) -> Executable:
         """Add the default project executable (same name as project)
         """
         if self.main_target is not None:
             raise RuntimeError("You cannot use both Project.main_library and Project.main_executable")
-        self.main_target = self.executable(self.name)
+        self.main_target = self.executable(self.name, root)
         return cast(Executable, self.main_target)
 
-    def executable(self, name) -> Executable:
+    def executable(self, name, root: str = None) -> Executable:
         """Add an executable to the project"""
-        executable = Executable(name, self.source_path)
-        self.executables.append(executable)
+        executable = Executable(name, self.source_path if root is None else self.source_path.joinpath(root))
+        self._executables.append(executable)
         return executable
 
-    def main_library(self) -> Library:
+    def main_library(self, root: str = None) -> Library:
         """Add the default project library (same name as project)"""
         if self.main_target is not None:
             raise RuntimeError("You cannot use both Project.main_library and Project.main_executable")
-        self.main_target = self.library(self.name)
+        self.main_target = self.library(self.name, root)
         return cast(Library, self.main_target)
 
-    def library(self, name) -> Library:
+    def library(self, name, root: str = None) -> Library:
         """Add a library to the project"""
-        library = Library(name, self.source_path)
-        self.libraries.append(library)
+        library = Library(name, self.source_path if root is None else self.source_path.joinpath(root))
+        self._libraries.append(library)
         return library
 
     @property
     def targets(self) -> List[Target]:
-        targets: List[Target] = self.libraries.copy()
-        targets.extend(self.executables)
+        targets: List[Target] = self._libraries.copy()
+        targets.extend(self._executables)
         return targets
 
     def generate(self):
         """Generates CMake stuff"""
 
-        def to_source_dir(path: Union[Path, str]):
-            return path.relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
-
         def to_library(lib: Union[Library, str]):
             return lib.name if type(lib) is Library else lib
 
         _jenv.filters.update({
-            "to_source_dir": to_source_dir,
             "to_library": to_library,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')

@@ -1,46 +1,38 @@
-import fnmatch
-import re
 from abc import abstractmethod
 from pathlib import Path
 
-from cpppm.utils import ListProperty
-
-
-class PathList(list):
-    def __init__(self, path: Path):
-        super().__init__()
-        self.path = path
-
-    def glob(self, pattern: str):
-        self.extend(self.path.glob(pattern))
-
-    def rglob(self, pattern: str):
-        self.extend(self.path.rglob(pattern))
-
-    def rfilter(self, pattern: str):
-        pattern = fnmatch.translate(pattern)
-        for path in self:
-            if re.match(pattern, str(path)):
-                self.remove(path)
+from .utils.decorators import list_property
+from .utils.pathlist import PathList
 
 
 class Target:
-    sources = ListProperty(PathList)
-    include_dirs = ListProperty()
-    link_libraries = ListProperty()
-    compile_options: ListProperty()
-
-    def __init__(self, name: str, source_path: Path):
+    def __init__(self, name: str, root: Path):
         super().__init__()
         self.name = name
-        self.sources = PathList(source_path)
-        self.include_dirs = []
-        self.link_libraries = []
-        self.compile_options = []
+        self._sources = PathList(root)
+        self._include_dirs = PathList(root)
+        self._link_libraries = []
+        self._compile_options = []
+
+    @list_property
+    def sources(self) -> PathList:
+        return self._sources
+
+    @list_property
+    def include_dirs(self) -> PathList:
+        return self._include_dirs
+
+    @list_property
+    def link_libraries(self) -> list:
+        return self._link_libraries
+
+    @list_property
+    def link_libraries(self) -> list:
+        return self._link_libraries
 
     @property
-    def source_path(self):
-        return self.sources.path
+    def source_path(self) -> list:
+        return self.sources.root
 
     @property
     @abstractmethod
