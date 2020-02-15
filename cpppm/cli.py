@@ -1,23 +1,34 @@
 import logging
-
-import click
+import shutil
 import sys
 from pathlib import Path
+
+import click
 
 from .project import Project
 
 
 @click.group(invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Let me talk about me.')
-@click.option("--build-directory", "-b", default="build-cpppm",
+@click.option("--out-directory", "-o", default="build-cpppm",
               help="Build directory, generated files should go there.")
+@click.option("--clean", "-c", is_flag=True,
+              help="Remove all stuff before processing the following command.")
+@click.option("--setting", "-s", help="Conan setting.", multiple=True)
+@click.option("--build-type", "-b", default="Release",
+              type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
 @click.pass_context
-def cli(ctx, verbose, build_directory):
-    if build_directory:
-        Project.set_build_path(Path(build_directory))
-        Project.build_path.mkdir(exist_ok=True)
-        if not Project.build_path.exists():
-            raise RuntimeError('Failed to create build directory: {build_directory}')
+def cli(ctx, verbose, out_directory, clean, setting, build_type):
+    if clean:
+        out_directory = Path(out_directory)
+        if out_directory.exists():
+            shutil.rmtree(out_directory)
+    Project.settings = list(setting)
+    Project.build_type = build_type
+    Project.set_build_path(Path(out_directory))
+    Project.build_path.mkdir(exist_ok=True)
+    if not Project.build_path.exists():
+        raise RuntimeError('Failed to create build directory: {build_directory}')
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     if ctx.invoked_subcommand is None:

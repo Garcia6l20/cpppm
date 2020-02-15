@@ -20,6 +20,8 @@ class Project:
     projects: List['Project'] = []
     main_target: Target = None
     build_path: Path = None
+    build_type = 'Debug'
+    settings = []
 
     @staticmethod
     def set_build_path(path: Path):
@@ -52,8 +54,6 @@ class Project:
         self._conan_infos = None
         self._conan_refs = None
         self.conan_packages = []
-
-        self.build_type = 'Debug'
 
         if Project.root_project is None:
             Project.root_project = self
@@ -119,12 +119,10 @@ class Project:
         manifest_interactive = False
         lockfile = None
         profile_names = None
-        settings = [
-            f'build_type={self.build_type}'
-        ]
+        Project.settings.append(f'build_type={Project.build_type}')
         options = None
         env = None
-        graph_info = get_graph_info(profile_names, settings, options, env, self.build_path, None,
+        graph_info = get_graph_info(profile_names, Project.settings, options, env, self.build_path, None,
                                     conan.app.cache, conan.app.out,
                                     name=None, version=None, user=None, channel=None,
                                     lockfile=lockfile)
@@ -175,10 +173,11 @@ class Project:
 
     def build(self, target: str = None):
         runner = Runner("cmake", self.build_path)
-        runner.run(str(self.source_path.absolute()), f'-DCMAKE_BUILD_TYPE={self.build_type}')
+        runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', str(self.source_path.absolute()))
         args = ['--build', '.']
         if target:
             args.extend(('--target', {target}))
+        args.extend({'--config': Project.build_type})
         runner.run(*args)
 
     def run(self, target: str, *args):
