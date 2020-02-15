@@ -66,7 +66,10 @@ def build(ctx, target):
     click.echo(f"Build directory: {str(Project.build_path.absolute())}")
     click.echo(f"Project: {Project.root_project.name}")
     ctx.invoke(configure)
-    Project.root_project.build(target)
+    rc = Project.root_project.build(target)
+    if rc != 0:
+        click.echo(f'Build failed with return code: {rc}')
+        exit(rc)
 
 
 @cli.command()

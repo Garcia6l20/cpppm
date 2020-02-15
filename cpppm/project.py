@@ -171,14 +171,16 @@ class Project:
         # self._logger.debug(lists)
         lists_file.write(lists)
 
-    def build(self, target: str = None):
+    def build(self, target: str = None) -> int:
         runner = Runner("cmake", self.build_path)
-        runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', str(self.source_path.absolute()))
+        res = runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', str(self.source_path.absolute()))
+        if res != 0:
+            return res
         args = ['--build', '.']
         if target:
             args.extend(('--target', {target}))
-        args.extend({'--config': Project.build_type})
-        runner.run(*args)
+        args.extend(('--config', Project.build_type))
+        return runner.run(*args)
 
     def run(self, target: str, *args):
         target = target or self.default_executable or self.main_target

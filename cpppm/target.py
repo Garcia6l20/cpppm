@@ -16,6 +16,7 @@ class Target:
         self._subdirs = PathList(root)
         self._link_libraries = []
         self._compile_options = []
+        self._compile_definitions = []
 
     @list_property
     def sources(self) -> PathList:
@@ -34,8 +35,12 @@ class Target:
         return self._link_libraries
 
     @list_property
-    def link_libraries(self) -> list:
-        return self._link_libraries
+    def compile_options(self) -> list:
+        return self._compile_options
+
+    @list_property
+    def compile_definitions(self) -> list:
+        return self._compile_definitions
 
     @property
     def source_path(self) -> list:

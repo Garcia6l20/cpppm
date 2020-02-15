@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+import platform
+
 from cpppm import Project, main
 
 project = Project('conan_requires')
-project.requires = 'fmt/6.1.2', 'gtest/1.10.0'
+project.requires = 'fmt/6.1.2', 'doctest/2.3.6'
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
-exe.link_libraries = 'fmt', 'gtest'
+exe.link_libraries = 'fmt', 'doctest'
 
 main()

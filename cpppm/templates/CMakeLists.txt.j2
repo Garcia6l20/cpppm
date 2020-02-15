@@ -21,6 +21,7 @@ project({{project.name}})
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
+conan_include_build_modules()
 {% endif %}
 
 {%- for target in project.targets %}
