@@ -1,6 +1,6 @@
 import inspect
 from pathlib import Path
-from typing import List, Union, final, cast
+from typing import List, Union, final, cast, Mapping, Any
 
 from conans.client.conan_api import Conan, get_graph_info
 from conans.client.manager import deps_install
@@ -49,6 +49,7 @@ class Project:
         self._libraries: List[Library] = []
         self._executables: List[Executable] = []
         self._requires: List[str] = []
+        self.requires_options: Mapping[str, Any] = {}
 
         self.default_executable = None
         self._conan_infos = None
@@ -120,7 +121,7 @@ class Project:
         lockfile = None
         profile_names = None
         Project.settings.append(f'build_type={Project.build_type}')
-        options = None
+        options = [f'{key}={value}' for key, value in self.requires_options.items()]
         env = None
         graph_info = get_graph_info(profile_names, Project.settings, options, env, self.build_path, None,
                                     conan.app.cache, conan.app.out,
