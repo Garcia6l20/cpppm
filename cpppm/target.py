@@ -43,7 +43,7 @@ class Target:
         return self._compile_definitions
 
     @property
-    def source_path(self) -> list:
+    def source_path(self) -> Path:
         return self.sources.root
 
     @property

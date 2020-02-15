@@ -1,6 +1,6 @@
 import inspect
 from pathlib import Path
-from typing import List, Union, final, cast, Mapping, Any
+from typing import List, Union, final, cast, Any, Dict
 
 from conans.client.conan_api import Conan, get_graph_info
 from conans.client.manager import deps_install
@@ -49,7 +49,8 @@ class Project:
         self._libraries: List[Library] = []
         self._executables: List[Executable] = []
         self._requires: List[str] = []
-        self.requires_options: Mapping[str, Any] = {}
+        self._build_requires: List[str] = []
+        self.requires_options: Dict[str, Any] = {}
 
         self.default_executable = None
         self._conan_infos = None
@@ -75,6 +76,10 @@ class Project:
     @list_property
     def requires(self):
         return self._requires
+
+    @list_property
+    def build_requires(self):
+        return self._build_requires
 
     def main_executable(self, root: str = None) -> Executable:
         """Add the default project executable (same name as project)
@@ -113,6 +118,7 @@ class Project:
         conan = Conan()
         conan.create_app()
         self._conan_refs = [ConanFileReference.loads(req) for req in self.requires]
+        self._conan_refs.extend([ConanFileReference.loads(req) for req in self.build_requires])
         self.conan_packages = [ref.name for ref in self._conan_refs]
         recorder = ActionRecorder()
         manifest_folder = None
