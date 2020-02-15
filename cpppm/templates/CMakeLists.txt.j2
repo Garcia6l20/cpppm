@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
 {% if project.name -%}
-# include(./conan_paths.cmake)
-# conan_basic_setup(TARGETS)
-
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -21,6 +18,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
 include(GenerateExportHeader)
 
 project({{project.name}})
+
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup(TARGETS)
 {% endif %}
 
 {%- for target in project.targets %}

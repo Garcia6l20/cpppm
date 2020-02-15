@@ -2,15 +2,17 @@ import inspect
 from pathlib import Path
 from typing import List, Union, final, cast
 
+from conans.client.conan_api import Conan, get_graph_info
+from conans.client.manager import deps_install
+from conans.client.recorder.action_recorder import ActionRecorder
+from conans.model.requires import ConanFileReference
 from . import _jenv, _get_logger
 from .executable import Executable
 from .library import Library
 from .target import Target
 from .utils import Runner
-from .utils.pathlist import PathList
+from .utils.decorators import list_property
 
-
-# from conans.model.requires import ConanFileReference
 
 @final
 class Project:
@@ -25,7 +27,7 @@ class Project:
             proj.build_path = path.absolute()
         Project.build_path = path.absolute()
 
-    def __init__(self, name):
+    def __init__(self, name, version: str = None):
         self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
         module_frame = None
@@ -41,11 +43,17 @@ class Project:
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
 
         self.name = name
+        self.version = version
         self._libraries: List[Library] = []
         self._executables: List[Executable] = []
-        self.requires: List[str] = []
+        self._requires: List[str] = []
 
         self.default_executable = None
+        self._conan_infos = None
+        self._conan_refs = None
+        self.conan_packages = []
+
+        self.build_type = 'Debug'
 
         if Project.root_project is None:
             Project.root_project = self
@@ -62,6 +70,10 @@ class Project:
     @property
     def lib_path(self):
         return self.build_path.joinpath('lib')
+
+    @list_property
+    def requires(self):
+        return self._requires
 
     def main_executable(self, root: str = None) -> Executable:
         """Add the default project executable (same name as project)
@@ -96,6 +108,42 @@ class Project:
         targets.extend(self._executables)
         return targets
 
+    def install_requirements(self):
+        conan = Conan()
+        conan.create_app()
+        self._conan_refs = [ConanFileReference.loads(req) for req in self.requires]
+        self.conan_packages = [ref.name for ref in self._conan_refs]
+        recorder = ActionRecorder()
+        manifest_folder = None
+        manifest_verify = False
+        manifest_interactive = False
+        lockfile = None
+        profile_names = None
+        settings = [
+            f'build_type={self.build_type}'
+        ]
+        options = None
+        env = None
+        graph_info = get_graph_info(profile_names, settings, options, env, self.build_path, None,
+                                    conan.app.cache, conan.app.out,
+                                    name=None, version=None, user=None, channel=None,
+                                    lockfile=lockfile)
+        remotes = conan.app.load_remotes(remote_name=None, update=True)
+        deps_install(app=conan.app,
+                     ref_or_path=self._conan_refs,
+                     install_folder=self.build_path,
+                     remotes=remotes,
+                     graph_info=graph_info,
+                     build_modes=None,
+                     update=True,
+                     manifest_folder=manifest_folder,
+                     manifest_verify=manifest_verify,
+                     manifest_interactive=manifest_interactive,
+                     generators=['cmake'],
+                     no_imports=False,
+                     recorder=recorder)
+        self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
+
     def generate(self):
         """Generates CMake stuff"""
 
@@ -103,7 +151,12 @@ class Project:
             return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
 
         def to_library(lib: Union[Library, str]):
-            return lib.name if type(lib) is Library else lib
+            if type(lib) is Library:
+                return lib.name
+            elif lib in self.conan_packages:
+                return f'CONAN_PKG::{lib}'
+            else:
+                return lib
 
         _jenv.filters.update({
             "relative_source_path": relative_source_path,
@@ -122,7 +175,7 @@ class Project:
 
     def build(self, target: str = None):
         runner = Runner("cmake", self.build_path)
-        runner.run(str(self.source_path.absolute()))
+        runner.run(str(self.source_path.absolute()), f'-DCMAKE_BUILD_TYPE={self.build_type}')
         args = ['--build', '.']
         if target:
             args.extend(('--target', {target}))

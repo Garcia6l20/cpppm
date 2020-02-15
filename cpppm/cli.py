@@ -24,9 +24,17 @@ def cli(ctx, verbose, build_directory):
         ctx.invoke(run)
 
 
-@cli.command()
-def generate():
+@cli.command('install-requirements')
+def install_requirements():
     """Generates conan/CMake stuff."""
+    Project.root_project.install_requirements()
+
+
+@cli.command()
+@click.pass_context
+def generate(ctx):
+    """Generates conan/CMake stuff."""
+    ctx.invoke(install_requirements)
     Project.root_project.generate()
 
 
