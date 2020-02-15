@@ -13,6 +13,7 @@ class Target:
 
         self._sources = PathList(root)
         self._include_dirs = PathList(root)
+        self._subdirs = PathList(root)
         self._link_libraries = []
         self._compile_options = []
 
@@ -23,6 +24,10 @@ class Target:
     @list_property
     def include_dirs(self) -> PathList:
         return self._include_dirs
+
+    @list_property
+    def subdirs(self) -> PathList:
+        return self._subdirs
 
     @list_property
     def link_libraries(self) -> list:

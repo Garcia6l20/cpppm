@@ -2,14 +2,15 @@ import inspect
 from pathlib import Path
 from typing import List, Union, final, cast
 
-from cpppm.utils import Runner
-# from conans.model.requires import ConanFileReference
-
 from . import _jenv, _get_logger
 from .executable import Executable
 from .library import Library
 from .target import Target
+from .utils import Runner
+from .utils.pathlist import PathList
 
+
+# from conans.model.requires import ConanFileReference
 
 @final
 class Project:
@@ -110,7 +111,12 @@ class Project:
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')
         lists_file = open(self.source_path / 'CMakeLists.txt', 'w')
-        lists = jlists.render({'project': self})
+        lists = jlists.render({
+            'project': self,
+            'cache': {
+                'subdirs': []
+            }
+        })
         # self._logger.debug(lists)
         lists_file.write(lists)
 

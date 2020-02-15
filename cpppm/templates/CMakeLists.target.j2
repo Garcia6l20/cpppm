@@ -1,23 +1,30 @@
+{% if ( target.subdirs | length ) and not ( target.subdirs in cache.subdirs ) %}
+{%- for subdir in target.subdirs %}
+add_subdirectory({{ subdir.as_posix() }})
+{%- endfor %}
+{% do cache.subdirs.append(target.subdirs) %}
+# {{ cache }}
+{% endif -%}
 {{target.command}}({{target.name}} {{target.type}}
 {%- for source in target.sources %}
     {{ source | relative_source_path }}
 {%- endfor %}
 )
-{% if target.include_dirs %}
+{% if target.include_dirs | length %}
 target_include_directories({{target.name}} PUBLIC
 {%- for include_dir in target.include_dirs %}
     {{ include_dir | relative_source_path }}
 {%- endfor %}
 )
 {% endif -%}
-{%- if target.compile_options %}
+{%- if target.compile_options | length %}
 target_compile_options({{target.name}} PUBLIC
 {%- for compile_option in target.compile_options %}
     {{ compile_option }}
 {%- endfor %}
 )
 {% endif -%}
-{%- if target.link_libraries %}
+{%- if target.link_libraries | length %}
 target_link_libraries({{target.name}} PUBLIC
 {%- for link_library in target.link_libraries %}
     {{ link_library | to_library }}
