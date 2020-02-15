@@ -98,10 +98,14 @@ class Project:
     def generate(self):
         """Generates CMake stuff"""
 
+        def relative_source_path(path: Union[Path, str]):
+            return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
+
         def to_library(lib: Union[Library, str]):
             return lib.name if type(lib) is Library else lib
 
         _jenv.filters.update({
+            "relative_source_path": relative_source_path,
             "to_library": to_library,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')

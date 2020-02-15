@@ -1,12 +1,12 @@
 {{target.command}}({{target.name}} {{target.type}}
 {%- for source in target.sources %}
-    {{ source.as_posix() }}
+    {{ source | relative_source_path }}
 {%- endfor %}
 )
 {% if target.include_dirs %}
 target_include_directories({{target.name}} PUBLIC
 {%- for include_dir in target.include_dirs %}
-    {{ include_dir.as_posix() }}
+    {{ include_dir | relative_source_path }}
 {%- endfor %}
 )
 {% endif -%}
@@ -20,7 +20,10 @@ target_compile_options({{target.name}} PUBLIC
 {%- if target.link_libraries %}
 target_link_libraries({{target.name}} PUBLIC
 {%- for link_library in target.link_libraries %}
-    {{ link_library|to_library }}
+    {{ link_library | to_library }}
 {%- endfor %}
 )
+{% endif -%}
+{%- if target.export_header %}
+generate_export_header({{ target.name }} EXPORT_FILE_NAME {{ target.export_header }})
 {% endif -%}

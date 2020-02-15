@@ -9,6 +9,8 @@ class Target:
     def __init__(self, name: str, root: Path):
         super().__init__()
         self.name = name
+        self.export_header = None
+
         self._sources = PathList(root)
         self._include_dirs = PathList(root)
         self._link_libraries = []
