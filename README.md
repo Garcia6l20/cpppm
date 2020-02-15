@@ -11,26 +11,37 @@ cpppm is a C/C++ project manager that focus on flexibility.
 Consider following code:
 - *main.cpp*:
 ```cpp
-#include <iostream>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
+#include <fmt/format.h>
 
-int main(int argc, char** argv) {
-    std::cout << "Hello " << argv[1] << " !\n";
-    return 0;
+TEST_CASE("cpppm loves conan") {
+    CHECK(fmt::format("{1} loves {0} !!!", "conan", "cpppm") == "cpppm loves conan !!!");
 }
 ```
 - *project.py*:
 ```python
 from cpppm import Project, main
 
-project = Project('Hellocpppm')
-hello = project.executable('hello')
-hello.sources = {'main.cpp'}
+project = Project('conan_requires')
+project.requires = 'fmt/6.1.2', 'doctest/2.3.6'
+exe = project.main_executable()
+exe.sources = 'src/main.cpp'
+exe.link_libraries = 'fmt', 'doctest'
 main()
 ```
 At this point you'll be able to run:
 ```bash
 $ python ./project.py run hello cpppm
-Hello cpppm !
+
+# Build output ommitted...
+
+[doctest] doctest version is "2.3.6"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:      1 |      1 passed |      0 failed |      0 skipped
+[doctest] assertions:      1 |      1 passed |      0 failed |
+[doctest] Status: SUCCESS!
 ```
 Amazing, no ?
 
@@ -58,10 +69,15 @@ So, If you feel doing such stuff often, give it a try :kissing_heart:.
 
 ### Installation
 
+- By cloning this repository:
 ```bash
 git clone https://github.com/Garcia6l20/cpppm.git
 cd cpppm
-python setup.py --user install
+python setup.py install --user
+```
+- Available on [PyPi](https://pypi.org/project/cpppm/):
+```bash
+pip install --user cpppm
 ```
 
 ### Commands
@@ -92,11 +108,10 @@ For API, check the examples (Im trying to demonstrate all uses cases), use IDE t
 
 - [x] CMakeProject generation
 - [x] Project compilation
-- [ ] Conan package management (not yet, but soon)
+- [x] Conan package management (not yet, but soon)
 - [x] Executables invocation (automatically added to cli interface) 
 - [x] Customizable (you can do anything you can do with python)
 - [x] Cli customization (cou can add any `@cpppm.cli.command` that you want to add, see [click](https://click.palletsprojects.com/))
-- [ ] Git management (hum... not sure)
 
 ## Contributing
 

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import platform
-
 from cpppm import Project, main
 
 project = Project('conan_requires')
