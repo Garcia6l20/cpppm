@@ -1,6 +1,9 @@
 import inspect
+import sys
 from pathlib import Path
 from typing import List, Union, final, cast, Any, Dict
+
+from cpppm.utils.pathlist import PathList
 
 from conans.client.conan_api import Conan, get_graph_info
 from conans.client.manager import deps_install
@@ -37,8 +40,8 @@ class Project:
             if frame.function == '<module>':
                 module_frame = frame
                 break
-        self.build_script = Path(module_frame[1])
-        self._root_path = self.build_script.parent.absolute()
+        self.script_path = Path(module_frame[1]).resolve()
+        self._root_path = self.script_path.parent.absolute()
         self.build_path = Project.build_path or self._root_path.joinpath('build-cpppm')
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
@@ -53,9 +56,13 @@ class Project:
         self.requires_options: Dict[str, Any] = {}
 
         self.default_executable = None
+
+        self._uses_conan = False
         self._conan_infos = None
         self._conan_refs = None
         self.conan_packages = []
+
+        self.generators = []
 
         if Project.root_project is None:
             Project.root_project = self
@@ -115,6 +122,9 @@ class Project:
         return targets
 
     def install_requirements(self):
+        if len(self._requires) == 0 and len(self._build_requires) == 0:
+            self._logger.debug('project has no requirements')
+            return
         conan = Conan()
         conan.create_app()
         self._conan_refs = [ConanFileReference.loads(req) for req in self.requires]
@@ -148,12 +158,16 @@ class Project:
                      no_imports=False,
                      recorder=recorder)
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
+        self._uses_conan = True
 
     def generate(self):
         """Generates CMake stuff"""
 
         def relative_source_path(path: Union[Path, str]):
             return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
+
+        def relative_build_path(path: Union[Path, str]):
+            return path.absolute().relative_to(self.build_path).as_posix() if isinstance(path, Path) else path
 
         def to_library(lib: Union[Library, str]):
             if type(lib) is Library:
@@ -163,9 +177,14 @@ class Project:
             else:
                 return lib
 
+        def to_dependencies(deps: PathList):
+            return ' '.join([relative_build_path(dep) for dep in deps])
+
         _jenv.filters.update({
             "relative_source_path": relative_source_path,
+            "relative_build_path": relative_build_path,
             "to_library": to_library,
+            "to_dependencies": to_dependencies,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')
         lists_file = open(self.source_path / 'CMakeLists.txt', 'w')
@@ -173,7 +192,9 @@ class Project:
             'project': self,
             'cache': {
                 'subdirs': []
-            }
+            },
+            'python': sys.executable,
+            'pythonpath': self.script_path.parent.parent.absolute(),
         })
         # self._logger.debug(lists)
         lists_file.write(lists)

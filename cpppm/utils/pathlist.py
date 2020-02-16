@@ -7,7 +7,7 @@ from typing import Iterable
 class PathList:
     def __init__(self, root: Path):
         super().__init__()
-        self.root = root
+        self.root = root.resolve()
         self.paths = list()
 
     def glob(self, pattern: str):

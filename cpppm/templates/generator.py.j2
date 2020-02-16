@@ -1,0 +1,13 @@
+{% extends 'event.py.j2' %}
+
+{% block body %}
+from cpppm.utils.events import check_generator_sha
+
+print("old_sha1: {{ sha1 }}")
+
+if check_generator_sha("{{ sha1 }}", "{{ sha1_path }}", {{ files }}):
+    print("skipping {{ event.name }} {{ old_sha1 }}")
+    exit(0)
+
+{% endblock %}
+

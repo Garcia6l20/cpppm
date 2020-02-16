@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from pathlib import Path
+from typing import List
 
 from .utils.decorators import list_property
 from .utils.pathlist import PathList
@@ -7,20 +8,27 @@ from .utils.pathlist import PathList
 
 class Target:
     def __init__(self, name: str, root: Path):
+        from .utils.events import Event
         super().__init__()
         self.name = name
         self.export_header = None
 
         self._sources = PathList(root)
+        self._dependencies = PathList(root)
         self._include_dirs = PathList(root)
         self._subdirs = PathList(root)
         self._link_libraries = []
         self._compile_options = []
         self._compile_definitions = []
+        self.events: List[Event] = []
 
     @list_property
     def sources(self) -> PathList:
         return self._sources
+
+    @list_property
+    def dependencies(self) -> PathList:
+        return self._dependencies
 
     @list_property
     def include_dirs(self) -> PathList:

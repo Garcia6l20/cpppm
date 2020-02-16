@@ -19,9 +19,25 @@ include(GenerateExportHeader)
 
 project({{project.name}})
 
+{% if project.uses_conan -%}
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
 conan_include_build_modules()
+{%- endif %}
+
+message(STATUS "cpppm: generators: {{ project.generators }}")
+{%- for generator in project.generators %}
+message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
+add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
+    COMMAND {{ python }} {{ generator.script_path.absolute() }}
+    DEPENDS {{ generator.script_path.absolute() }} {{ project.script_path.absolute() }}
+    COMMENT "firing {{ generator.name }} ({{ generator.event_type }})"
+)
+{% for output in generator.target %}
+add_custom_target({{ output.name | relative_build_path }}-generator DEPENDS {{ output }})
+{% endfor %}
+{% endfor %}
+
 {% endif %}
 
 {%- for target in project.targets %}

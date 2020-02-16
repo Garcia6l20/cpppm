@@ -18,7 +18,7 @@ def working_directory(path: Path, create=True):
         os.chdir(str(prev_cwd))
 
 
-class list_property(object):
+class list_property:
     """Overrides assignments of list-like objects"""
 
     def __init__(self, fget: Callable[[object], List]):

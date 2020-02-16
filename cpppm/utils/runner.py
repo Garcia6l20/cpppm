@@ -13,7 +13,7 @@ class Runner:
         self.executable = executable
         self.working_path = working_path
 
-    def run(self, *args):
+    def run(self, *args, env=None):
         @working_directory(self.working_path)
         def do_run():
             tmp = [self.executable, *args]
