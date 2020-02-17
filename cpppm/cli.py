@@ -5,16 +5,7 @@ from pathlib import Path
 
 import click
 
-_output_dir_option = "--out-directory", "-o"
-
-
-def get_output_directory():
-    for opt in _output_dir_option:
-        import sys
-        if opt in sys.argv:
-            return Path(sys.argv[sys.argv.index(opt) + 1])
-
-
+from . import _output_dir_option
 from .project import Project
 
 

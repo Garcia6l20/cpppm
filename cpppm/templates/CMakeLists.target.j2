@@ -1,19 +1,19 @@
 {% if ( target.subdirs | length ) and not ( target.subdirs in cache.subdirs ) %}
 {%- for subdir in target.subdirs %}
-add_subdirectory({{ subdir.as_posix() }})
+add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_path }}/{{ target.name }}/{{ subdir.name }} )
 {%- endfor %}
 {% do cache.subdirs.append(target.subdirs) %}
 # {{ cache }}
 {% endif -%}
 {{target.command}}({{target.name}} {{target.type}}
 {%- for source in target.sources %}
-    {{ source | relative_source_path }}
+    {{ source | absolute_path }}
 {%- endfor %}
 )
 {% if target.include_dirs | length %}
 target_include_directories({{target.name}} PUBLIC
 {%- for include_dir in target.include_dirs %}
-    {{ include_dir | relative_source_path }}
+    {{ include_dir | absolute_path }}
 {%- endfor %}
 )
 {% endif -%}
@@ -46,12 +46,12 @@ generate_export_header({{ target.name }} EXPORT_FILE_NAME {{ target.export_heade
 message(STATUS "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
 # {{ event.event_type }}
 {%- if event.event_type == 0 %}
-execute_process(COMMAND {{ python }} {{ event.event_path.absolute().as_posix() }}
+execute_process(COMMAND {{ python }} {{ event.event_path | absolute_path }}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 {% elif event.event_type != 3 %}
 add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
-    COMMAND {{ python }} {{ event.event_path.absolute().as_posix() }}
+    COMMAND {{ python }} {{ event.event_path | absolute_path }}
     COMMENT "-- cpppm: firing {{target.name}} ({{ event.event_type }})"
 )
 {% endif %}

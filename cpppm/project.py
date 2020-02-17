@@ -8,8 +8,7 @@ from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
 
-from . import _jenv, _get_logger
-from .cli import get_output_directory
+from . import _jenv, _get_logger, get_build_path
 from .executable import Executable
 from .library import Library
 from .target import Target
@@ -44,7 +43,7 @@ class Project:
         self._root_path = self.script_path.parent.absolute()
 
         # adjust output dir
-        self.build_path = get_output_directory() or self._root_path.joinpath('build-cpppm')
+        self.build_path = get_build_path()
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
@@ -180,6 +179,9 @@ class Project:
         def relative_source_path(path: Union[Path, str]):
             return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
 
+        def absolute_path(path: Path):
+            return path.absolute().as_posix()
+
         def relative_build_path(path: Union[Path, str]):
             if not isinstance(path, Path):
                 return (self.build_path / Path(path)).as_posix()
@@ -206,13 +208,14 @@ class Project:
             return ' '.join(str_deps)
 
         _jenv.filters.update({
+            'absolute_path': absolute_path,
             "relative_source_path": relative_source_path,
             "relative_build_path": relative_build_path,
             "to_library": to_library,
             "to_dependencies": to_dependencies,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')
-        lists_file = open(self.source_path / 'CMakeLists.txt', 'w')
+        lists_file = open(str(self.build_path / 'CMakeLists.txt'), 'w')
         lists = jlists.render({
             'project': self,
             'cache': {
@@ -226,7 +229,7 @@ class Project:
 
     def build(self, target: str = None) -> int:
         runner = Runner("cmake", self.build_path)
-        res = runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', str(self.source_path.absolute()))
+        res = runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', '.')
         if res != 0:
             return res
         args = ['--build', '.']

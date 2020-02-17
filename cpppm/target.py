@@ -61,10 +61,6 @@ class Target:
         return self._compile_definitions
 
     @property
-    def source_path(self) -> Path:
-        return self.sources.root
-
-    @property
     @abstractmethod
     def command(self) -> str:
         raise NotImplementedError

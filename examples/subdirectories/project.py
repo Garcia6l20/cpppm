@@ -16,7 +16,7 @@ ctti_repo.remotes.origin.pull()
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
 exe.include_dirs = ctti / 'include'
-exe.subdirs = ctti
+exe.subdirs = ctti.absolute()
 exe.link_libraries = 'ctti'
 
 main()

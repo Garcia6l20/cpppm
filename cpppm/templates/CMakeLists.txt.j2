@@ -29,8 +29,8 @@ message(STATUS "cpppm: generators: {{ project.generators }}")
 {%- for generator in project.generators %}
 message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
 add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
-    COMMAND {{ python }} {{ generator.event_path.absolute().as_posix() }}
-    DEPENDS {{ generator.event_path.absolute().as_posix() }} {{ project.source_path.as_posix() }} {{ generator.depends | to_dependencies }}
+    COMMAND {{ python }} {{ generator.event_path | absolute_path }}
+    DEPENDS {{ generator.event_path | absolute_path }} {{ project | absolute_path }} {{ generator.depends | to_dependencies }}
     COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}
