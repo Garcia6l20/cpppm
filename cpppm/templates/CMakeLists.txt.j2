@@ -30,7 +30,7 @@ message(STATUS "cpppm: generators: {{ project.generators }}")
 message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
 add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
     COMMAND {{ python }} {{ generator.script_path.as_posix() }}
-    DEPENDS {{ generator.script_path.as_posix() }} {{ project.script_path.as_posix() }}
+    DEPENDS {{ generator.script_path.as_posix() }} {{ project.script_path.as_posix() }} {{ generator.depends | to_dependencies }}
     COMMENT "firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}

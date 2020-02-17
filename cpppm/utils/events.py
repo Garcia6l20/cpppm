@@ -55,9 +55,13 @@ class EventKind(enum.IntEnum):
 
 
 class Event:
-    def __init__(self, event_type: EventKind, target: Target, *args, **kwargs):
+    def __init__(self, event_type: EventKind, target: Target, *args, depends: List = [], **kwargs):
         self.event_type: EventKind = event_type
         self.args = args
+        if not isinstance(depends, list):
+            self.depends = [depends]
+        else:
+            self.depends = depends
         self.kwargs = kwargs
         self.target = target
 
@@ -157,5 +161,5 @@ class on_postbuild(Event):
 
 class generator(Event):
 
-    def __init__(self, file_paths: List[Path], *args, **kwargs):
-        super().__init__(EventKind.GENERATOR, file_paths, *args, **kwargs)
+    def __init__(self, file_paths: List[Path], *args, depends=[], **kwargs):
+        super().__init__(EventKind.GENERATOR, file_paths, *args, depends=depends, **kwargs)

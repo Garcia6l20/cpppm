@@ -196,9 +196,14 @@ class Project:
             else:
                 return lib
 
-        def to_dependencies(deps: PathList):
-            out = ' '.join([str(relative_build_path(dep)) for dep in deps])
-            return out
+        def to_dependencies(deps: List[Union[Path, Target]]):
+            str_deps = []
+            for dep in deps:
+                if isinstance(dep, Target):
+                    str_deps.append(dep.name)
+                else:
+                    str_deps.append(str(relative_build_path(dep)))
+            return ' '.join(str_deps)
 
         _jenv.filters.update({
             "relative_source_path": relative_source_path,

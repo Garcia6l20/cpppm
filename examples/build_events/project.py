@@ -2,22 +2,26 @@
 from datetime import datetime
 
 from cpppm import Project, main
+from cpppm.executable import Executable
 from cpppm.utils.events import generator, on_configure, on_prebuild, on_postbuild
 
 project = Project('events')
+project.requires = 'fmt/6.1.2'
+project.requires_options = {'fmt:header_only': True}
+
+gen = project.executable('gen_date')
+gen.sources = 'src/generator.cpp'
+gen.link_libraries = 'fmt'
+
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
 config_header = 'config.hpp'
 exe.dependencies = config_header
 
 
-@generator([config_header], project)
-def config_generator(project):
-    print('==> config_generator config.hpp')
-    open('config.hpp', 'w').write(f'''#pragma once
-#define GENERATED_TIME "{datetime.utcnow()}"
-#define PROJECT_NAME "{project.name}"
-''')
+@generator([config_header], gen, depends=gen)
+def config_generator(generator: Executable):
+    generator.run()
 
 
 @on_configure(exe, exe)
