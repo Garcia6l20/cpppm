@@ -31,7 +31,7 @@ message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type 
 add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
     COMMAND {{ python }} {{ generator.event_path.absolute().as_posix() }}
     DEPENDS {{ generator.event_path.absolute().as_posix() }} {{ project.source_path.as_posix() }} {{ generator.depends | to_dependencies }}
-    COMMENT "firing {{ generator.name }} ({{ generator.event_type }})"
+    COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}
 add_custom_target({{ output.name }}-generator DEPENDS {{ output }})
