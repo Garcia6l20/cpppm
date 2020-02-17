@@ -122,12 +122,14 @@ class Event:
         if not self.event_path.exists() or (sha1_path.exists() and sha1_path.open('r').read() != sha1):
             files = None
             if self.event_type == EventKind.GENERATOR:
-                files = [f"{Path(f).absolute()}" for f in self.target]
+                files = [Path(f) for f in self.target]
+                self.target = files
             self.event_path.open('w').write(_jenv.get_template(template_name).render({
                 'event': self,
                 'sha1_path': sha1_path.absolute(),
                 'sha1': sha1,
-                'files': files
+                'files': [str(f) for f in files] if files else '',
+                'build_path': Project.root_project.build_path,
             }))
             print(f'{self.name} ----> {self.sha1}')
             if sha1_path.exists():

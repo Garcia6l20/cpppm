@@ -5,15 +5,16 @@ from pathlib import Path
 
 import click
 
-from .project import Project
-
 _output_dir_option = "--out-directory", "-o"
 
-for opt in _output_dir_option:
-    import sys
-    if opt in sys.argv:
-        Project.set_build_path(Path(sys.argv[sys.argv.index(opt) + 1]))
-        break
+
+def get_output_directory():
+    for opt in _output_dir_option:
+        import sys
+        if opt in sys.argv:
+            return Path(sys.argv[sys.argv.index(opt) + 1])
+
+from .project import Project
 
 
 @click.group(invoke_without_command=True)

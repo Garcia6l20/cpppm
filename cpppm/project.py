@@ -3,8 +3,6 @@ import sys
 from pathlib import Path
 from typing import List, Union, final, cast, Any, Dict
 
-from cpppm.utils.pathlist import PathList
-
 from conans.client.conan_api import Conan, get_graph_info
 from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
@@ -15,7 +13,7 @@ from .library import Library
 from .target import Target
 from .utils import Runner
 from .utils.decorators import list_property
-
+from .cli import get_output_directory
 
 @final
 class Project:
@@ -44,7 +42,7 @@ class Project:
         self._root_path = self.script_path.parent.absolute()
 
         # adjust output dir
-        self.build_path = Project.build_path or self._root_path.joinpath('build-cpppm')
+        self.build_path = get_output_directory() or self._root_path.joinpath('build-cpppm')
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
