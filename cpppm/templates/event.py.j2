@@ -1,9 +1,10 @@
-from pathlib import Path
 import sys
+import importlib.util
 
-{% block body %}{% endblock %}
-
-sys.path.append('{{ event.script_path.absolute().parent.parent.parent.as_posix() }}')
+{% block body -%}
 sys.argv.append('__cpppm_event__')
-from {{event.package}}.{{event.module}} import {{ event.function_name }}
-exit({{ event.function_name }}())
+spec = importlib.util.spec_from_file_location('{{event.source_path.with_suffix('').name }}', '{{ event.source_path.absolute().as_posix() }}')
+builder = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(builder)
+builder.{{ event.function_name }}()
+{%- endblock %}

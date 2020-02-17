@@ -96,9 +96,9 @@ class Event:
         return self.event_type.name
 
     def __call__(self, func, *args, **kwargs):
-
         self.func = func
-        self.script_path = filename = Project.root_project.build_path.joinpath(f'{self.function_name}.py')
+        self.source_path = Path(inspect.getfile(func))
+        self.event_path = Project.root_project.build_path.joinpath(f'{self.function_name}.py')
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -110,11 +110,6 @@ class Event:
             return func(*args, **kwargs)
 
         Project.root_project.build_path.mkdir(exist_ok=True)
-        Project.root_project.build_path.joinpath(f'__init__.py').touch(exist_ok=True)
-        self.module = Project.root_project. \
-            script_path.relative_to(Project.root_project.source_path).with_suffix('').name
-        self.package = Project.root_project.script_path.parent.with_suffix('').name
-
         if self.event_type == EventKind.GENERATOR:
             template_name = 'generator.py.j2'
             Project.root_project.generators.append(self)
@@ -123,12 +118,12 @@ class Event:
             self.target.events.append(self)
 
         sha1 = self.sha1
-        sha1_path = filename.absolute().with_suffix('.sha1')
-        if not filename.exists() or (sha1_path.exists() and sha1_path.open('r').read() != sha1):
+        sha1_path = self.event_path.absolute().with_suffix('.sha1')
+        if not self.event_path.exists() or (sha1_path.exists() and sha1_path.open('r').read() != sha1):
             files = None
             if self.event_type == EventKind.GENERATOR:
                 files = [f"{Path(f).absolute()}" for f in self.target]
-            filename.open('w').write(_jenv.get_template(template_name).render({
+            self.event_path.open('w').write(_jenv.get_template(template_name).render({
                 'event': self,
                 'sha1_path': sha1_path.absolute(),
                 'sha1': sha1,

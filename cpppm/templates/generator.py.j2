@@ -6,5 +6,6 @@ from cpppm.utils.events import check_generator_sha
 if check_generator_sha("{{ sha1 }}", "{{ sha1_path.as_posix() }}", {{ files }}):
     print("skipping {{ event.name }} {{ old_sha1 }}")
     exit(0)
-{% endblock %}
 
+{{ super() }}
+{% endblock %}

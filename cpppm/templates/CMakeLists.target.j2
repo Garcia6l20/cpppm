@@ -46,12 +46,12 @@ generate_export_header({{ target.name }} EXPORT_FILE_NAME {{ target.export_heade
 message(STATUS "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
 # {{ event.event_type }}
 {%- if event.event_type == 0 %}
-execute_process(COMMAND {{ python }} {{ event.script_path.absolute().as_posix() }}
+execute_process(COMMAND {{ python }} {{ event.event_path.absolute().as_posix() }}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 {% elif event.event_type != 3 %}
 add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
-    COMMAND {{ python }} {{ event.script_path.absolute().as_posix() }}
+    COMMAND {{ python }} {{ event.event_path.absolute().as_posix() }}
     COMMENT "firing {{event_name}} ({{ event.event_type }})"
 )
 {% endif %}
