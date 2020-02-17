@@ -8,7 +8,7 @@ from .utils.pathlist import PathList
 
 class Target:
     def __init__(self, name: str, source_path: Path, build_path: Path):
-        from .utils.events import Event
+        from cpppm.events import Event
         super().__init__()
         self.name = name
         self.export_header = None

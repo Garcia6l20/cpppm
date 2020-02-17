@@ -2,7 +2,6 @@ from .target import Target
 
 
 class Library(Target):
-
     static: bool = False
 
     @property

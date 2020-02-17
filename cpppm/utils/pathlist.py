@@ -1,14 +1,16 @@
 import fnmatch
 import re
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List
 
 
 class PathList:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, paths: List[Path] = None):
         super().__init__()
         self.root = root.resolve()
-        self.paths = list()
+        self.paths = []
+        if paths:
+            self.extend(paths)
 
     def glob(self, pattern: str):
         self.paths.extend(self.root.glob(pattern))

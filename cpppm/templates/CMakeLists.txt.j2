@@ -34,7 +34,7 @@ add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
     COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}
-add_custom_target({{ output.name }}-generator DEPENDS {{ output }})
+add_custom_target({{ output.name }}-generator DEPENDS {{ output.as_posix() }})
 {% endfor %}
 {% endfor %}
 

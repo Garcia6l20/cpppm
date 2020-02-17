@@ -1,3 +1,4 @@
+import os
 import sys
 import importlib.util
 
@@ -6,5 +7,7 @@ sys.argv.extend(['-o', '{{ build_path.absolute().as_posix() }}', '__cpppm_event_
 spec = importlib.util.spec_from_file_location('{{event.source_path.with_suffix('').name }}', '{{ event.source_path.absolute().as_posix() }}')
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+os.makedirs("{{ cwd.absolute().as_posix() }}", exist_ok=True)
+os.chdir("{{ cwd.absolute().as_posix() }}")
 builder.{{ event.function_name }}()
 {%- endblock %}

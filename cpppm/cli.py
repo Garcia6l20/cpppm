@@ -14,6 +14,7 @@ def get_output_directory():
         if opt in sys.argv:
             return Path(sys.argv[sys.argv.index(opt) + 1])
 
+
 from .project import Project
 
 

@@ -1,23 +1,21 @@
-import os
-from pathlib import Path
 import subprocess as sp
-
-from .. import _get_logger
+from pathlib import Path
 
 from .decorators import working_directory
+from .. import _get_logger
 
 
 class Runner:
-    def __init__(self, executable, working_path: Path):
+    def __init__(self, executable, cwd: Path = None):
         self._logger = _get_logger(self, executable)
         self.executable = str(executable.absolute()) if isinstance(executable, Path) else executable
-        self.working_path = working_path
+        self.cwd = cwd or Path.cwd()
 
-    def run(self, *args, env=None):
-        @working_directory(self.working_path)
+    def run(self, *args):
+        @working_directory(self.cwd)
         def do_run():
             tmp = [self.executable, *args]
-            self._logger.debug(f'Working dir: {self.working_path}')
+            self._logger.debug(f'Working dir: {self.cwd}')
             self._logger.debug(f'Command: {" ".join(tmp)}')
             return sp.run(tmp).returncode
 

@@ -1,49 +1,14 @@
-import builtins
 import enum
+import hashlib
 import inspect
-import os
-import sys
-import time
 from functools import wraps
 from pathlib import Path
-from typing import List
-import hashlib
+from typing import List, Union
 
-from ..target import Target
-from ..project import Project
-from .. import _jenv
-
-
-def check_event_sha(old_sha1, sha1_path):
-    sha1_path = Path(sha1_path)
-    if sha1_path.exists():
-        sha1 = sha1_path.open('r').read()
-        print(f"old: {old_sha1}")
-        print(f"new: {sha1}")
-        if sha1 and old_sha1 != sha1:
-            print(f"{sha1_path}  changed")
-            return False
-        else:
-            return True
-    else:
-        sha1_path.open('w').write(old_sha1)
-        return False
-
-
-def check_generator_sha(old_sha1, sha1_path, files):
-    if check_event_sha(old_sha1, sha1_path):
-        for f in files:
-            f = Path(f)
-            if not f.exists():
-                print(f"--- File missing: {f}")
-                return False
-            else:
-                print(f"--- Updating: {f}")
-                stinfo = f.stat()
-                os.utime(f.absolute(), (stinfo.st_atime, time.time()))
-        return True
-    else:
-        return False
+from cpppm import _jenv
+from cpppm.project import Project
+from cpppm.target import Target
+from cpppm.utils.pathlist import PathList
 
 
 class EventKind(enum.IntEnum):
@@ -55,7 +20,11 @@ class EventKind(enum.IntEnum):
 
 
 class Event:
-    def __init__(self, event_type: EventKind, target: Target, *args, depends: List = [], **kwargs):
+    def __init__(self, event_type: EventKind, target: Union[Target, PathList],
+                 *args, depends=None, cwd=None, **kwargs):
+        self.cwd = cwd or Project.root_project.build_path
+        if depends is None:
+            depends = []
         self.event_type: EventKind = event_type
         self.args = args
         if not isinstance(depends, list):
@@ -104,7 +73,7 @@ class Event:
         def wrapper(*args, **kwargs):
             args = [*self.args, *args]
             kwargs.update(self.kwargs)
-            from .. import _get_logger
+            from . import _get_logger
             logger = _get_logger(self, self.function_name)
             logger.info(f'firing {self.function_name} with {args}, {kwargs}')
             return func(*args, **kwargs)
@@ -130,6 +99,7 @@ class Event:
                 'sha1': sha1,
                 'files': [str(f) for f in files] if files else '',
                 'build_path': Project.root_project.build_path,
+                'cwd': self.cwd,
             }))
             print(f'{self.name} ----> {self.sha1}')
             if sha1_path.exists():
@@ -158,5 +128,9 @@ class on_postbuild(Event):
 
 class generator(Event):
 
-    def __init__(self, file_paths: List[Path], *args, depends=[], **kwargs):
-        super().__init__(EventKind.GENERATOR, file_paths, *args, depends=depends, **kwargs)
+    def __init__(self, filepaths: List[Path], *args, depends=None, cwd=None, **kwargs):
+        if depends is None:
+            depends = []
+        if cwd is None:
+            cwd = Project.build_path
+        super().__init__(EventKind.GENERATOR, PathList(cwd, filepaths), *args, depends=depends, cwd=cwd, **kwargs)

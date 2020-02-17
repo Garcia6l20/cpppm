@@ -20,7 +20,5 @@ class Executable(Target):
 
     def run(self, *args, working_directory=None):
         from .project import Project
-        if not working_directory:
-            working_directory = Project.root_project.build_path
         runner = Runner(Project.root_project.bin_path.joinpath(self.exe), working_directory)
         return runner.run(*args)

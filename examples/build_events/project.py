@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-from cpppm import Project, main
-from cpppm.executable import Executable
-from cpppm.utils.events import generator, on_configure, on_prebuild, on_postbuild
+from cpppm import Project, Executable, main, events
 
 project = Project('events')
 project.requires = 'fmt/6.1.2'
@@ -13,26 +11,25 @@ gen.link_libraries = 'fmt'
 
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
-config_header = 'config.hpp'
-exe.dependencies = config_header
+exe.dependencies = 'include/config.hpp'
 
 
-@generator([config_header], gen, depends=gen)
+@events.generator(['config.hpp'], gen, depends=gen, cwd=exe.build_path / 'include')
 def config_generator(generator: Executable):
     generator.run()
 
 
-@on_configure(exe, exe)
+@events.on_configure(exe, exe)
 def configure(exe):
     print(f'==> on_configure {exe.name}')
 
 
-@on_prebuild(exe, exe)
+@events.on_prebuild(exe, exe)
 def prebuild(exe):
     print(f'==> on_prebuild  {exe.name}')
 
 
-@on_postbuild(exe, exe)
+@events.on_postbuild(exe, exe)
 def postbuild(exe):
     print(f'==> on_postbuild {exe.name}')
 

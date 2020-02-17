@@ -7,13 +7,15 @@ from conans.client.conan_api import Conan, get_graph_info
 from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
+
 from . import _jenv, _get_logger
+from .cli import get_output_directory
 from .executable import Executable
 from .library import Library
 from .target import Target
 from .utils import Runner
 from .utils.decorators import list_property
-from .cli import get_output_directory
+
 
 @final
 class Project:
@@ -123,7 +125,7 @@ class Project:
 
     def library(self, name, root: str = None) -> Library:
         """Add a library to the project"""
-        library = Library(name,  *self._target_paths(root))
+        library = Library(name, *self._target_paths(root))
         self._libraries.append(library)
         return library
 
