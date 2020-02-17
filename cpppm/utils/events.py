@@ -105,6 +105,7 @@ class Event:
             logger.info(f'firing {self.function_name} with {args}, {kwargs}')
             return func(*args, **kwargs)
 
+        Project.root_project.build_path.mkdir(exist_ok=True)
         Project.root_project.build_path.joinpath(f'__init__.py').touch(exist_ok=True)
         self.module = Project.root_project. \
             script_path.relative_to(Project.root_project.source_path).with_suffix('').name

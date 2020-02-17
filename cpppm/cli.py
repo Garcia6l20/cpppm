@@ -7,10 +7,18 @@ import click
 
 from .project import Project
 
+_output_dir_option = "--out-directory", "-o"
+
+for opt in _output_dir_option:
+    import sys
+    if opt in sys.argv:
+        Project.set_build_path(Path(sys.argv[sys.argv.index(opt) + 1]))
+        break
+
 
 @click.group(invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Let me talk about me.')
-@click.option("--out-directory", "-o", default=None,
+@click.option(*_output_dir_option, default=None,
               help="Build directory, generated files should go there.")
 @click.option("--clean", "-c", is_flag=True,
               help="Remove all stuff before processing the following command.")
@@ -20,7 +28,7 @@ from .project import Project
 @click.pass_context
 def cli(ctx, verbose, out_directory, clean, setting, build_type):
     if clean:
-        out_directory = Path(out_directory)
+        out_directory = Path(out_directory) if out_directory else Project.root_project.build_path
         if out_directory.exists():
             shutil.rmtree(out_directory)
     Project.settings = list(setting)

@@ -1,10 +1,9 @@
 from pathlib import Path
 import sys
-from cpppm.utils.events import check_event_sha
 
-{% block body %}
-{% endblock %}
+{% block body %}{% endblock %}
 
+sys.path.append('{{ event.script_path.absolute().parent.parent.parent.as_posix() }}')
 sys.argv.append('__cpppm_event__')
 from {{event.package}}.{{event.module}} import {{ event.function_name }}
 exit({{ event.function_name }}())

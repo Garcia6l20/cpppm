@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from datetime import datetime
+
 from cpppm import Project, main
 from cpppm.utils.events import generator, on_configure, on_prebuild, on_postbuild
-from datetime import datetime
 
 project = Project('events')
 exe = project.main_executable()
@@ -24,7 +25,6 @@ def configure(exe):
     print(f'==> on_configure {exe.name}')
 
 
-
 @on_prebuild(exe, exe)
 def prebuild(exe):
     print(f'==> on_prebuild  {exe.name}')
@@ -33,8 +33,6 @@ def prebuild(exe):
 @on_postbuild(exe, exe)
 def postbuild(exe):
     print(f'==> on_postbuild {exe.name}')
-
-
 
 
 main()

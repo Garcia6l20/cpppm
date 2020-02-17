@@ -42,6 +42,8 @@ class Project:
                 break
         self.script_path = Path(module_frame[1]).resolve()
         self._root_path = self.script_path.parent.absolute()
+
+        # adjust output dir
         self.build_path = Project.build_path or self._root_path.joinpath('build-cpppm')
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
@@ -77,6 +79,10 @@ class Project:
         return self.build_path.joinpath('bin')
 
     @property
+    def uses_conan(self):
+        return self._uses_conan
+
+    @property
     def lib_path(self):
         return self.build_path.joinpath('lib')
 
@@ -88,6 +94,14 @@ class Project:
     def build_requires(self):
         return self._build_requires
 
+    def _target_paths(self, root: str) -> [Path, Path]:
+        root = Path(root) if root is not None else self.source_path
+        if not root.is_absolute():
+            build_root = self.build_path / root
+        else:
+            build_root = self.build_path / root.relative_to(self.source_path)
+        return root.absolute(), build_root.absolute()
+
     def main_executable(self, root: str = None) -> Executable:
         """Add the default project executable (same name as project)
         """
@@ -98,7 +112,7 @@ class Project:
 
     def executable(self, name, root: str = None) -> Executable:
         """Add an executable to the project"""
-        executable = Executable(name, self.source_path if root is None else self.source_path.joinpath(root))
+        executable = Executable(name, *self._target_paths(root))
         self._executables.append(executable)
         return executable
 
@@ -111,7 +125,7 @@ class Project:
 
     def library(self, name, root: str = None) -> Library:
         """Add a library to the project"""
-        library = Library(name, self.source_path if root is None else self.source_path.joinpath(root))
+        library = Library(name,  *self._target_paths(root))
         self._libraries.append(library)
         return library
 
@@ -167,7 +181,12 @@ class Project:
             return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
 
         def relative_build_path(path: Union[Path, str]):
-            return path.absolute().relative_to(self.build_path).as_posix() if isinstance(path, Path) else path
+            if not isinstance(path, Path):
+                return (self.build_path / Path(path)).as_posix()
+            elif path.is_absolute():
+                return path.absolute().relative_to(self.build_path).as_posix()
+            else:
+                return (self.build_path / Path(path)).as_posix()
 
         def to_library(lib: Union[Library, str]):
             if type(lib) is Library:
@@ -178,7 +197,8 @@ class Project:
                 return lib
 
         def to_dependencies(deps: PathList):
-            return ' '.join([relative_build_path(dep) for dep in deps])
+            out = ' '.join([str(relative_build_path(dep)) for dep in deps])
+            return out
 
         _jenv.filters.update({
             "relative_source_path": relative_source_path,
@@ -193,8 +213,8 @@ class Project:
             'cache': {
                 'subdirs': []
             },
-            'python': sys.executable,
-            'pythonpath': self.script_path.parent.parent.absolute(),
+            'python': Path(sys.executable).as_posix(),
+            'pythonpath': self.script_path.parent.parent.absolute().as_posix(),
         })
         # self._logger.debug(lists)
         lists_file.write(lists)

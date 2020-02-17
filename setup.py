@@ -29,7 +29,6 @@ setuptools.setup(
     ],
     python_requires='>=3.8',
     install_requires=[
-        'Jinja2>=2.11.1',
         'Click>=7.0',
         'conan>=1.22.0'
     ],

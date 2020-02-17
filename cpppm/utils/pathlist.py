@@ -28,8 +28,8 @@ class PathList:
         if not path.exists() and (self.root / path).exists():
             path = self.root / path
         if not path.is_absolute():
-            path = path.absolute().relative_to(self.root)
-        return path
+            path = self.root / path
+        return path.absolute()
 
     def append(self, path: Path) -> None:
         self.paths.append(self.__adjust__(path))

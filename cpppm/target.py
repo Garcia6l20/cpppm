@@ -7,20 +7,30 @@ from .utils.pathlist import PathList
 
 
 class Target:
-    def __init__(self, name: str, root: Path):
+    def __init__(self, name: str, source_path: Path, build_path: Path):
         from .utils.events import Event
         super().__init__()
         self.name = name
         self.export_header = None
+        self._source_path = source_path
+        self._build_path = build_path
 
-        self._sources = PathList(root)
-        self._dependencies = PathList(root)
-        self._include_dirs = PathList(root)
-        self._subdirs = PathList(root)
+        self._sources = PathList(source_path)
+        self._dependencies = PathList(build_path)
+        self._include_dirs = PathList(source_path)
+        self._subdirs = PathList(build_path)
         self._link_libraries = []
         self._compile_options = []
         self._compile_definitions = []
         self.events: List[Event] = []
+
+    @property
+    def source_path(self) -> Path:
+        return self._source_path
+
+    @property
+    def build_path(self) -> Path:
+        return self._build_path
 
     @list_property
     def sources(self) -> PathList:
