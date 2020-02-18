@@ -5,7 +5,8 @@ project = Project('basic-project')
 basic = project.library('basic')
 basic.sources = {
     'include/basic.hpp',
-    'src/basic.cpp'
+    'src/basic.cpp',
+    'src/private.hpp'
 }
 basic.include_dirs = 'include'
 basic.shared = False

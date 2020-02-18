@@ -387,7 +387,7 @@ class Project:
                 lib.lib_path.copy(lib_dest)
 
             # copy headers
-            for header in lib.headers:
+            for header in lib.public_headers:
                 dest = header_dest / header.relative_to(lib.source_path / 'include')
                 header.copy(dest)
 

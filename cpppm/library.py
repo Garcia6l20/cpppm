@@ -63,3 +63,14 @@ class Library(Target):
             if re.match(Library.header_pattern, str(source)):
                 out.append(source)
         return out
+
+    @property
+    def public_headers(self) -> List[Path]:
+        out: List[Path] = []
+        for header in self.headers:
+            try:
+                header.relative_to(self.source_path / 'include')
+                out.append(header)
+            except ValueError:
+                pass
+        return out
