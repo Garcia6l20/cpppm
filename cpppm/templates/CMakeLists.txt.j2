@@ -3,23 +3,23 @@ cmake_minimum_required(VERSION 3.15)
 {% if project.name -%}
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
 include(GenerateExportHeader)
 
 project({{project.name}})
 
-{% if project.uses_conan -%}
+{% if project.uses_conan and project.is_root -%}
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
 conan_include_build_modules()
@@ -30,12 +30,17 @@ message(STATUS "cpppm: generators: {{ project.generators }}")
 message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
 add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
     COMMAND {{ python }} {{ generator.event_path | absolute_path }}
-    DEPENDS {{ generator.event_path | absolute_path }} {{ project | absolute_path }} {{ generator.depends | to_dependencies }}
+    DEPENDS {{ generator.event_path | absolute_path }} {{ project.script_path | absolute_path }} {{ generator.depends | to_dependencies }}
     COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}
 add_custom_target({{ output.name }}-generator DEPENDS {{ output.as_posix() }})
 {% endfor %}
+{% endfor %}
+
+# subprojects
+{% for _, subproject in project.subprojects.items() %}
+add_subdirectory({{subproject.build_path | absolute_path }} {{subproject.build_path | absolute_path }})
 {% endfor %}
 
 {% endif %}

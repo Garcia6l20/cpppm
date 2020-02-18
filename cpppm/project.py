@@ -1,3 +1,4 @@
+import importlib.util
 import inspect
 import sys
 from pathlib import Path
@@ -8,7 +9,7 @@ from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
 
-from . import _jenv, _get_logger, get_build_path
+from . import _jenv, _get_logger, _get_build_path
 from .executable import Executable
 from .library import Library
 from .target import Target
@@ -18,7 +19,8 @@ from .utils.decorators import list_property
 
 @final
 class Project:
-    root_project: 'Project' = None
+    _root_project: 'Project' = None
+    current_project: 'Project' = None
     projects: List['Project'] = []
     main_target: Target = None
     build_path: Path = None
@@ -32,6 +34,8 @@ class Project:
         Project.build_path = path.absolute()
 
     def __init__(self, name, version: str = None):
+        self.name = name
+        self.version = version
         self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
         module_frame = None
@@ -43,20 +47,22 @@ class Project:
         self._root_path = self.script_path.parent.absolute()
 
         # adjust output dir
-        self.build_path = get_build_path()
+        if not Project._root_project:
+            self.build_path = _get_build_path()
+        else:
+            self.build_path = Project._root_project.build_path / self.name
+        self.build_path.mkdir(exist_ok=True)
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
 
-        self.name = name
-        self.version = version
         self._libraries: List[Library] = []
         self._executables: List[Executable] = []
         self._requires: List[str] = []
         self._build_requires: List[str] = []
         self.requires_options: Dict[str, Any] = {}
 
-        self.default_executable = None
+        self._default_executable = None
 
         self._uses_conan = False
         self._conan_infos = None
@@ -64,10 +70,20 @@ class Project:
         self.conan_packages = []
 
         self.generators = []
+        self.subprojects: Dict[str, Project] = dict()
 
-        if Project.root_project is None:
-            Project.root_project = self
+        if Project._root_project is None:
+            Project._root_project = self
         Project.projects.append(self)
+        Project.current_project = self
+
+    @property
+    def default_executable(self):
+        return self._default_executable or self.main_target
+
+    @default_executable.setter
+    def default_executable(self, exe: Executable):
+        self._default_executable = exe
 
     @property
     def source_path(self):
@@ -135,13 +151,23 @@ class Project:
         return targets
 
     def install_requirements(self):
-        if len(self._requires) == 0 and len(self._build_requires) == 0:
+
+        requirements = self.requires
+        build_requirements = self.build_requires
+        options = self.requires_options
+        for name, project in self.subprojects.items():
+            self._logger.info(f'Collecting requirements of {name} ({project.source_path})')
+            requirements.extend(project.requires)
+            build_requirements.extend(project.build_requires)
+            options.update(project.requires_options)
+
+        if len(requirements) == 0 and len(build_requirements) == 0:
             self._logger.debug('project has no requirements')
             return
         conan = Conan()
         conan.create_app()
-        self._conan_refs = [ConanFileReference.loads(req) for req in self.requires]
-        self._conan_refs.extend([ConanFileReference.loads(req) for req in self.build_requires])
+        self._conan_refs = [ConanFileReference.loads(req) for req in requirements]
+        self._conan_refs.extend([ConanFileReference.loads(req) for req in build_requirements])
         self.conan_packages = [ref.name for ref in self._conan_refs]
         recorder = ActionRecorder()
         manifest_folder = None
@@ -150,7 +176,7 @@ class Project:
         lockfile = None
         profile_names = None
         Project.settings.append(f'build_type={Project.build_type}')
-        options = [f'{key}={value}' for key, value in self.requires_options.items()]
+        options = [f'{key}={value}' for key, value in options.items()]
         env = None
         graph_info = get_graph_info(profile_names, Project.settings, options, env, self.build_path, None,
                                     conan.app.cache, conan.app.out,
@@ -173,8 +199,17 @@ class Project:
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
         self._uses_conan = True
 
+    @property
+    def is_root(self):
+        return self.build_path == _get_build_path()
+
     def generate(self):
         """Generates CMake stuff"""
+
+        # generate subprojects
+        for name, project in self.subprojects.items():
+            self._logger.info(f'Generating {name} ({project.source_path})')
+            project.generate()
 
         def relative_source_path(path: Union[Path, str]):
             return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
@@ -193,7 +228,7 @@ class Project:
         def to_library(lib: Union[Library, str]):
             if type(lib) is Library:
                 return lib.name
-            elif lib in self.conan_packages:
+            elif lib in Project._root_project.conan_packages:
                 return f'CONAN_PKG::{lib}'
             else:
                 return lib
@@ -203,10 +238,13 @@ class Project:
             for dep in deps:
                 if isinstance(dep, Target):
                     str_deps.append(dep.name)
+                elif isinstance(dep, Path):
+                    str_deps.append(dep.absolute().as_posix())
                 else:
-                    str_deps.append(str(relative_build_path(dep)))
+                    str_deps.append(dep)
             return ' '.join(str_deps)
 
+        self.build_path.mkdir(exist_ok=True)
         _jenv.filters.update({
             'absolute_path': absolute_path,
             "relative_source_path": relative_source_path,
@@ -238,19 +276,37 @@ class Project:
         args.extend(('--config', Project.build_type))
         return runner.run(*args)
 
-    def run(self, target: str, *args):
-        target = target or self.default_executable or self.main_target
+    def run(self, target_name: str, *args):
+        target = target_name or self.default_executable or self.main_target
         if target is None:
             raise RuntimeError(r'No default executable defined')
 
         if not isinstance(target, Target):
             target = self.target(target)
+        if not target:
+            print(f'Target not found: {target_name}')
 
-        self._logger.debug(f'Build path: {self.build_path}')
-        self._logger.debug(f'Bin path: {self.bin_path}')
-
-        runner = Runner(target.exe, self.bin_path)
-        runner.run(*args)
+        cast(Executable, target).run(*args)
 
     def target(self, name: str) -> Target:
-        return next(filter(lambda t: t.name == name, self.targets))
+        for t in self.targets:
+            if t.name == name:
+                return t
+        for _, project in self.subprojects.items():
+            t = project.target(name)
+            if t:
+                return t
+
+    def subproject(self, name, path: Path = None) -> 'Project':
+        if path is None:
+            path = self.source_path.joinpath(name)
+        if isinstance(path, str):
+            path = Path(path)
+
+        spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        subproject = module.project
+        Project.current_project = self
+        self.subprojects[name] = subproject
+        return subproject

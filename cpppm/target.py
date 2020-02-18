@@ -8,8 +8,10 @@ from .utils.pathlist import PathList
 
 class Target:
     def __init__(self, name: str, source_path: Path, build_path: Path):
-        from cpppm.events import Event
+        from .events import Event
+        from .project import Project
         super().__init__()
+        self._bin_path = Project.current_project.bin_path
         self.name = name
         self.export_header = None
         self._source_path = source_path
@@ -31,6 +33,10 @@ class Target:
     @property
     def build_path(self) -> Path:
         return self._build_path
+
+    @property
+    def bin_path(self) -> Path:
+        return self._bin_path
 
     @list_property
     def sources(self) -> PathList:

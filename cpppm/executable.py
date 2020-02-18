@@ -1,4 +1,5 @@
 import platform
+from pathlib import Path
 
 from .target import Target
 from .utils import Runner
@@ -18,7 +19,12 @@ class Executable(Target):
     def exe(self) -> str:
         return self.name if platform.system() == 'Windows' else './' + self.name
 
+    @property
+    def executable_path(self) -> Path:
+        return self._bin_path / self.exe
+
     def run(self, *args, working_directory=None):
-        from .project import Project
-        runner = Runner(Project.root_project.bin_path.joinpath(self.exe), working_directory)
+        if working_directory is None:
+            working_directory = self._bin_path
+        runner = Runner(self.executable_path, working_directory)
         return runner.run(*args)

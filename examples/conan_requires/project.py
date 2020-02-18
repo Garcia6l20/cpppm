@@ -7,4 +7,5 @@ exe = project.main_executable()
 exe.sources = 'src/main.cpp'
 exe.link_libraries = 'fmt', 'doctest'
 
-main()
+if __name__ == '__main__':
+    main()

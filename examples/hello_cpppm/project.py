@@ -5,4 +5,5 @@ project = Project('hello-cpppm')
 hello = project.main_executable()
 hello.sources = 'src/main.cpp'
 
-main()
+if __name__ == '__main__':
+    main()

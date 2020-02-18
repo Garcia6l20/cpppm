@@ -15,4 +15,5 @@ hello = project.main_executable()
 hello.sources = 'src/main.cpp'
 hello.link_libraries = basic
 
-main()
+if __name__ == '__main__':
+    main()

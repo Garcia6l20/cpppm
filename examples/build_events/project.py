@@ -34,4 +34,5 @@ def postbuild(exe):
     print(f'==> on_postbuild {exe.name}')
 
 
-main()
+if __name__ == '__main__':
+    main()

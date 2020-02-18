@@ -19,4 +19,5 @@ exe.include_dirs = ctti / 'include'
 exe.subdirs = ctti.absolute()
 exe.link_libraries = 'ctti'
 
-main()
+if __name__ == '__main__':
+    main()

@@ -22,7 +22,7 @@ class EventKind(enum.IntEnum):
 class Event:
     def __init__(self, event_type: EventKind, target: Union[Target, PathList],
                  *args, depends=None, cwd=None, **kwargs):
-        self.cwd = cwd or Project.root_project.build_path
+        self.cwd = cwd or Project.current_project.build_path
         if depends is None:
             depends = []
         self.event_type: EventKind = event_type
@@ -67,7 +67,7 @@ class Event:
     def __call__(self, func, *args, **kwargs):
         self.func = func
         self.source_path = Path(inspect.getfile(func))
-        self.event_path = Project.root_project.build_path.joinpath(f'{self.function_name}.py')
+        self.event_path = Project.current_project.build_path.joinpath(f'{self.function_name}.py')
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -78,10 +78,10 @@ class Event:
             logger.info(f'firing {self.function_name} with {args}, {kwargs}')
             return func(*args, **kwargs)
 
-        Project.root_project.build_path.mkdir(exist_ok=True)
+        Project.current_project.build_path.mkdir(exist_ok=True)
         if self.event_type == EventKind.GENERATOR:
             template_name = 'generator.py.j2'
-            Project.root_project.generators.append(self)
+            Project.current_project.generators.append(self)
         else:
             template_name = 'event.py.j2'
             self.target.events.append(self)
@@ -98,7 +98,7 @@ class Event:
                 'sha1_path': sha1_path.absolute(),
                 'sha1': sha1,
                 'files': [str(f) for f in files] if files else '',
-                'build_path': Project.root_project.build_path,
+                'build_path': Project.current_project.build_path,
                 'cwd': self.cwd,
             }))
             print(f'{self.name} ----> {self.sha1}')
