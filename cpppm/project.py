@@ -9,12 +9,12 @@ from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
 
-from . import _jenv, _get_logger, _get_build_path
+from . import _jenv, _get_logger, _get_build_path, get_conan
 from .executable import Executable
 from .library import Library
 from .target import Target
 from .utils import Runner
-from .utils.decorators import list_property
+from .utils.decorators import list_property, classproperty
 
 
 @final
@@ -26,6 +26,7 @@ class Project:
     build_path: Path = None
     build_type = 'Debug'
     settings = []
+    __all_targets: List[Target] = []
 
     @staticmethod
     def set_build_path(path: Path):
@@ -76,6 +77,16 @@ class Project:
             Project._root_project = self
         Project.projects.append(self)
         Project.current_project = self
+
+    @classproperty
+    def root_project(cls) -> 'Project':
+        return cls._root_project
+
+    @staticmethod
+    def get_project(name):
+        for project in Project.projects:
+            if project.name == name:
+                return project  # already included
 
     @property
     def default_executable(self):
@@ -129,6 +140,7 @@ class Project:
         """Add an executable to the project"""
         executable = Executable(name, *self._target_paths(root))
         self._executables.append(executable)
+        Project.__all_targets.append(executable)
         return executable
 
     def main_library(self, root: str = None) -> Library:
@@ -142,6 +154,7 @@ class Project:
         """Add a library to the project"""
         library = Library(name, *self._target_paths(root))
         self._libraries.append(library)
+        Project.__all_targets.append(library)
         return library
 
     @property
@@ -149,6 +162,12 @@ class Project:
         targets: List[Target] = self._libraries.copy()
         targets.extend(self._executables)
         return targets
+
+    @staticmethod
+    def get_target(name):
+        for target in Project.__all_targets:
+            if target.name == name:
+                return target
 
     def install_requirements(self):
 
@@ -164,8 +183,10 @@ class Project:
         if len(requirements) == 0 and len(build_requirements) == 0:
             self._logger.debug('project has no requirements')
             return
-        conan = Conan()
-        conan.create_app()
+        conan = get_conan()
+        if not conan.app:
+            conan.create_app()
+
         self._conan_refs = [ConanFileReference.loads(req) for req in requirements]
         self._conan_refs.extend([ConanFileReference.loads(req) for req in build_requirements])
         self.conan_packages = [ref.name for ref in self._conan_refs]
@@ -279,14 +300,18 @@ class Project:
     def run(self, target_name: str, *args):
         target = target_name or self.default_executable or self.main_target
         if target is None:
-            raise RuntimeError(r'No default executable defined')
+            self._logger.warning(f'No default target defined')
+            return -1
 
         if not isinstance(target, Target):
             target = self.target(target)
         if not target:
-            print(f'Target not found: {target_name}')
+            raise RuntimeError(f'Target not found: {target_name}')
 
-        cast(Executable, target).run(*args)
+        if not isinstance(target, Executable):
+            self._logger.warning(f'Cannot execute target: {target.name} (not an executable)')
+        else:
+            return target.run(*args)
 
     def target(self, name: str) -> Target:
         for t in self.targets:
@@ -297,11 +322,18 @@ class Project:
             if t:
                 return t
 
-    def subproject(self, name, path: Path = None) -> 'Project':
+    def subproject(self, name: str, path: Union[str, Path] = None) -> 'Project':
         if path is None:
             path = self.source_path.joinpath(name)
         if isinstance(path, str):
             path = Path(path)
+
+        if not path.is_absolute():
+            path = (self.source_path / path).resolve().absolute()
+
+        project = Project.get_project(name)
+        if project is not None:
+            return project  # already included
 
         spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
         module = importlib.util.module_from_spec(spec)
@@ -310,3 +342,6 @@ class Project:
         Project.current_project = self
         self.subprojects[name] = subproject
         return subproject
+
+    def set_event(self, func):
+        setattr(self, func.__name__, func)

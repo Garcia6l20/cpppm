@@ -11,12 +11,14 @@ gen.link_libraries = 'fmt'
 
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
-exe.dependencies = 'include/config.hpp'
 
 
 @events.generator(['config.hpp'], gen, depends=gen, cwd=exe.build_path / 'include')
 def config_generator(generator: Executable):
     generator.run()
+
+
+exe.dependencies = config_generator
 
 
 @events.on_configure(exe, exe)

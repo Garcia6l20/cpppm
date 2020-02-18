@@ -15,6 +15,7 @@ target_include_directories({{target.name}} PUBLIC
 {%- for include_dir in target.include_dirs %}
     {{ include_dir | absolute_path }}
 {%- endfor %}
+    {{ target.build_path | absolute_path }} # build dir
 )
 {% endif -%}
 {%- if target.compile_options | length %}

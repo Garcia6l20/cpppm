@@ -2,7 +2,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import List
 
-from .utils.decorators import list_property
+from .utils.decorators import list_property, dependencies_property
 from .utils.pathlist import PathList
 
 
@@ -42,7 +42,7 @@ class Target:
     def sources(self) -> PathList:
         return self._sources
 
-    @list_property
+    @dependencies_property
     def dependencies(self) -> PathList:
         return self._dependencies
 

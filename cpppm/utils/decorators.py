@@ -32,3 +32,17 @@ class list_property:
             self.fget(obj).append(val)
         else:
             self.fget(obj).extend(val)
+
+
+class dependencies_property(list_property):
+
+    def __set__(self, obj, val):
+        if hasattr(val, 'event'):
+            self.fget(obj).extend(val.event.target)
+        else:
+            super().__set__(obj, val)
+
+
+class classproperty(property):
+    def __get__(self, cls, owner):
+        return classmethod(self.fget).__get__(None, owner)()

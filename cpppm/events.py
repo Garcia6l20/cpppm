@@ -67,6 +67,7 @@ class Event:
     def __call__(self, func, *args, **kwargs):
         self.func = func
         self.source_path = Path(inspect.getfile(func))
+        self.project = Project.current_project
         self.event_path = Project.current_project.build_path.joinpath(f'{self.function_name}.py')
 
         @wraps(func)
@@ -100,11 +101,14 @@ class Event:
                 'files': [str(f) for f in files] if files else '',
                 'build_path': Project.current_project.build_path,
                 'cwd': self.cwd,
+                'root': Project.root_project
             }))
             print(f'{self.name} ----> {self.sha1}')
             if sha1_path.exists():
                 sha1_path.unlink()
 
+        setattr(wrapper, 'event', self)
+        Project.current_project.set_event(wrapper)
         return wrapper
 
 
