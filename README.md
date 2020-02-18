@@ -32,7 +32,7 @@ main()
 ```
 At this point you'll be able to run:
 ```bash
-$ python ./project.py run hello cpppm
+$ python ./project.py run conan_requires
 
 # Build output ommitted...
 
@@ -44,6 +44,8 @@ $ python ./project.py run hello cpppm
 [doctest] Status: SUCCESS!
 ```
 Amazing, no ?
+
+Check out the examples folder for more use cases.
 
 ## How it works
 
@@ -96,7 +98,6 @@ Commands:
   configure  Configures CMake stuff.
   generate   Generates conan/CMake stuff.
   run        Runs the given TARGET with given ARGS.
-  test       Runs the unit tests.
 ```
 
 ### Documentation
@@ -106,9 +107,11 @@ For API, check the examples (Im trying to demonstrate all uses cases), use IDE t
 
 ### Features
 
-- [x] CMakeProject generation
+- [x] CMakeLists.txt generation
 - [x] Project compilation
-- [x] Conan package management (not yet, but soon)
+- [x] Build events, file generators
+- [x] Conan package dependencies management
+- [ ] Conan package generation (not yet, but soon)
 - [x] Executables invocation (automatically added to cli interface) 
 - [x] Customizable (you can do anything you can do with python)
 - [x] Cli customization (cou can add any `@cpppm.cli.command` that you want to add, see [click](https://click.palletsprojects.com/))

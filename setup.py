@@ -7,7 +7,7 @@ package = "cpppm"
 
 setuptools.setup(
     name=package,
-    version="0.1.0",
+    version="0.2.0",
     license='MIT',
     author="Garcia Sylvain",
     author_email="garcia.6l20@gmail.com",
