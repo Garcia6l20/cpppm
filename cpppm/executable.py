@@ -24,7 +24,5 @@ class Executable(Target):
         return self._bin_path / self.exe
 
     def run(self, *args, working_directory=None):
-        if working_directory is None:
-            working_directory = self._bin_path
         runner = Runner(self.executable_path, working_directory)
         return runner.run(*args)

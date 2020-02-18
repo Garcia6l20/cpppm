@@ -9,10 +9,10 @@ class Runner:
     def __init__(self, executable, cwd: Path = None):
         self._logger = _get_logger(self, executable)
         self.executable = str(executable.absolute()) if isinstance(executable, Path) else executable
-        self.cwd = cwd or Path.cwd()
+        self.cwd = cwd
 
     def run(self, *args):
-        @working_directory(self.cwd)
+        @working_directory(self.cwd or Path.cwd())
         def do_run():
             tmp = [self.executable, *args]
             self._logger.debug(f'Working dir: {self.cwd}')
