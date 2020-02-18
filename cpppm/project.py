@@ -1,5 +1,7 @@
 import importlib.util
 import inspect
+import platform
+import shutil
 import sys
 from pathlib import Path
 from typing import List, Union, final, cast, Any, Dict
@@ -345,3 +347,50 @@ class Project:
 
     def set_event(self, func):
         setattr(self, func.__name__, func)
+
+    def install(self, destination: Union[str, Path]):
+        if not isinstance(destination, Path):
+            destination = Path(destination)
+
+        logger = self._logger
+
+        def _copy(self, target):
+            assert self.is_file()
+            logger.info(f'Copying {self} -> {target}')
+            shutil.copy(str(self.absolute().as_posix()), str(target.absolute().as_posix()))
+
+        Path.copy = _copy
+
+        destination.mkdir(exist_ok=True)
+
+        bin_dest = destination / 'bin'
+        bin_dest.mkdir(exist_ok=True)
+
+        # copy executables
+        for exe in self._executables:
+            exe.bin_path.copy(bin_dest)
+
+        lib_dest = destination / 'lib'
+        lib_dest.mkdir(exist_ok=True)
+
+        if platform.system() != 'Windows':
+            bin_dest = lib_dest
+
+        header_dest = destination / 'include'
+        header_dest.mkdir(exist_ok=True)
+
+        # copy libraries/headers
+        for lib in self._libraries:
+            if lib.binary:
+                lib.bin_path.copy(bin_dest)
+            if lib.library:
+                lib.lib_path.copy(lib_dest)
+
+            # copy headers
+            for header in lib.headers:
+                dest = header_dest / header.relative_to(lib.source_path / 'include')
+                header.copy(dest)
+
+        # subprojects
+        for _, project in self.subprojects.items():
+            project.install(destination)

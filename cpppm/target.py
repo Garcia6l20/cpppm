@@ -10,8 +10,8 @@ class Target:
     def __init__(self, name: str, source_path: Path, build_path: Path):
         from .events import Event
         from .project import Project
-        super().__init__()
         self._bin_path = Project.current_project.bin_path
+        self._lib_path = Project.current_project.lib_path
         self.name = name
         self.export_header = None
         self._source_path = source_path
@@ -36,7 +36,7 @@ class Target:
 
     @property
     def bin_path(self) -> Path:
-        return self._bin_path
+        return self._bin_path / self.binary
 
     @list_property
     def sources(self) -> PathList:
@@ -78,5 +78,5 @@ class Target:
 
     @property
     @abstractmethod
-    def exe(self) -> str:
+    def binary(self) -> str:
         raise NotImplementedError

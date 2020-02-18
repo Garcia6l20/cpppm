@@ -72,13 +72,24 @@ def build(ctx, target):
     """Builds the project."""
     source_dir = Path(sys.argv[0]).parent
     click.echo(f"Source directory: {str(source_dir.absolute())}")
-    click.echo(f"Build directory: {str(Project._root_project.build_path.absolute())}")
-    click.echo(f"Project: {Project._root_project.name}")
+    click.echo(f"Build directory: {str(Project.root_project.build_path.absolute())}")
+    click.echo(f"Project: {Project.root_project.name}")
     ctx.invoke(configure)
-    rc = Project._root_project.build(target)
+    rc = Project.root_project.build(target)
     if rc != 0:
         click.echo(f'Build failed with return code: {rc}')
         exit(rc)
+
+
+@cli.command()
+@click.option('--no-build', '-n', is_flag=True, help='Do not build the project')
+@click.argument("destination", default='dist')
+@click.pass_context
+def install(ctx, no_build, destination):
+    """Installs targets to destination"""
+    if not no_build:
+        ctx.invoke(build)
+    Project.root_project.install(destination)
 
 
 @cli.command()

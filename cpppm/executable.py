@@ -16,12 +16,12 @@ class Executable(Target):
         return 'add_executable'
 
     @property
-    def exe(self) -> str:
+    def binary(self) -> str:
         return self.name if platform.system() == 'Windows' else './' + self.name
 
     @property
     def executable_path(self) -> Path:
-        return self._bin_path / self.exe
+        return self._bin_path / self.binary
 
     def run(self, *args, working_directory=None):
         runner = Runner(self.executable_path, working_directory)
