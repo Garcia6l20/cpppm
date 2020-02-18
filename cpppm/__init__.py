@@ -3,6 +3,10 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
+from conans.client.conf.detect import detect_defaults_settings
+
+from conans.client.conan_api import Conan
+
 logging.basicConfig(level=logging.INFO)
 
 _logger = logging.getLogger('cpppm')
@@ -12,6 +16,25 @@ _jenv = Environment(loader=PackageLoader('cpppm', 'templates'), extensions=['jin
 _output_dir_option = "--out-directory", "-o"
 
 __build_path = None
+
+__conan = Conan()
+
+
+def get_conan():
+    if __conan.app is None:
+        __conan.create_app()
+    return __conan
+
+
+__settings = None
+
+
+def get_settings():
+    global __settings
+    if not __settings:
+        app = get_conan().app
+        __settings = dict(detect_defaults_settings(app.out, app.cache.default_profile_path))
+    return __settings
 
 
 def _get_build_path():
@@ -23,7 +46,11 @@ def _get_build_path():
                 __build_path = Path(sys.argv[sys.argv.index(opt) + 1]).absolute()
                 break
         else:
-            __build_path = (Path.cwd() / 'build-cpppm').absolute()
+            settings = get_settings()
+            compiler = settings['compiler']
+            compiler += '-' + settings['compiler.version']
+            arch = settings['arch']
+            __build_path = (Path.cwd() / f'build-{compiler}-{arch}').absolute()
     return __build_path
 
 
