@@ -39,6 +39,7 @@ class Project:
     def __init__(self, name, version: str = None):
         self.name = name
         self.version = version
+        self.license = None
         self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
         module_frame = None
@@ -171,16 +172,19 @@ class Project:
             if target.name == name:
                 return target
 
-    def install_requirements(self):
-
+    def collect_requirements(self):
         requirements = self.requires
         build_requirements = self.build_requires
-        options = self.requires_options
+        requires_options = self.requires_options
         for name, project in self.subprojects.items():
             self._logger.info(f'Collecting requirements of {name} ({project.source_path})')
             requirements.extend(project.requires)
             build_requirements.extend(project.build_requires)
-            options.update(project.requires_options)
+            requires_options.update(project.requires_options)
+        return list(set(requirements)), list(set(build_requirements)), dict(), requires_options
+
+    def install_requirements(self):
+        requirements, build_requirements, options, default_options = self.collect_requirements()
 
         if len(requirements) == 0 and len(build_requirements) == 0:
             self._logger.debug('project has no requirements')
@@ -199,9 +203,9 @@ class Project:
         lockfile = None
         profile_names = None
         Project.settings.append(f'build_type={Project.build_type}')
-        options = [f'{key}={value}' for key, value in options.items()]
+        default_options = [f'{key}={value}' for key, value in default_options.items()]
         env = None
-        graph_info = get_graph_info(profile_names, Project.settings, options, env, self.build_path, None,
+        graph_info = get_graph_info(profile_names, Project.settings, default_options, env, self.build_path, None,
                                     conan.app.cache, conan.app.out,
                                     name=None, version=None, user=None, channel=None,
                                     lockfile=lockfile)
@@ -394,3 +398,10 @@ class Project:
         # subprojects
         for _, project in self.subprojects.items():
             project.install(destination)
+
+    def package(self):
+        conanfile_path = str(self.build_path / 'conanfile.py')
+        open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py').render())
+
+        conan = get_conan()
+        conan.create(conanfile_path)

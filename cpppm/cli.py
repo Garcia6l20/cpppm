@@ -47,7 +47,7 @@ def __cpppm_event__():
 @cli.command('install-requirements')
 def install_requirements():
     """Generates conan/CMake stuff."""
-    Project._root_project.install_requirements()
+    Project.root_project.install_requirements()
 
 
 @cli.command()
@@ -55,7 +55,7 @@ def install_requirements():
 def generate(ctx):
     """Generates conan/CMake stuff."""
     ctx.invoke(install_requirements)
-    Project._root_project.generate()
+    Project.root_project.generate()
 
 
 @cli.command()
@@ -90,6 +90,12 @@ def install(ctx, no_build, destination):
     if not no_build:
         ctx.invoke(build)
     Project.root_project.install(destination)
+
+
+@cli.command()
+def package():
+    """Installs targets to destination"""
+    Project.root_project.package()
 
 
 @cli.command()

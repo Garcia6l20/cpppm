@@ -1,6 +1,7 @@
 from cpppm import Project, main
 
-project = Project('examples')
+project = Project('examples', '0.0.0')
+project.license = 'MIT'
 
 project.subproject('hello_cpppm')
 project.subproject('conan_requires')
