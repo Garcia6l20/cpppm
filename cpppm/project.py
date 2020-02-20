@@ -4,9 +4,9 @@ import platform
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Union, final, cast, Any, Dict
+from typing import List, Union, cast, Any, Dict, Callable, Set, Tuple
 
-from conans.client.conan_api import Conan, get_graph_info
+from conans.client.conan_api import get_graph_info, ConanApp
 from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
@@ -19,7 +19,25 @@ from .utils import Runner
 from .utils.decorators import list_property, classproperty
 
 
-@final
+class collectable(list_property):
+    def __init__(self, fget: Callable[[object], List]):
+        super().__init__(fget)
+        self.fget = fget
+
+    def __get__(self, obj: 'Project', _obj_type):
+        collected = self.fget(obj)
+        if isinstance(collected, tuple):
+            collected = set(collected)
+        for project in obj.subprojects.values():
+            prop = self.fget(project)
+            if isinstance(collected, dict) or isinstance(collected, set):
+                collected.update(prop)
+            else:
+                collected.extend(prop)
+
+        return collected
+
+
 class Project:
     _root_project: 'Project' = None
     current_project: 'Project' = None
@@ -27,14 +45,7 @@ class Project:
     main_target: Target = None
     build_path: Path = None
     build_type = 'Debug'
-    settings = []
     __all_targets: List[Target] = []
-
-    @staticmethod
-    def set_build_path(path: Path):
-        for proj in Project.projects:
-            proj.build_path = path.absolute()
-        Project.build_path = path.absolute()
 
     def __init__(self, name, version: str = None):
         self.name = name
@@ -62,16 +73,16 @@ class Project:
 
         self._libraries: List[Library] = []
         self._executables: List[Executable] = []
-        self._requires: List[str] = []
-        self._build_requires: List[str] = []
-        self.requires_options: Dict[str, Any] = {}
+        self._requires: List[str] = list()
+        self._build_requires: List[str] = list()
+        self.test_folder = None
+        self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
+        self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
+        self._settings: Dict[str, Any] = {"os": None, "compiler": None, "build_type": None, "arch": None}
 
         self._default_executable = None
-
-        self._uses_conan = False
         self._conan_infos = None
         self._conan_refs = None
-        self.conan_packages = []
 
         self.generators = []
         self.subprojects: Dict[str, Project] = dict()
@@ -108,20 +119,8 @@ class Project:
         return self.build_path.joinpath('bin')
 
     @property
-    def uses_conan(self):
-        return self._uses_conan
-
-    @property
     def lib_path(self):
         return self.build_path.joinpath('lib')
-
-    @list_property
-    def requires(self):
-        return self._requires
-
-    @list_property
-    def build_requires(self):
-        return self._build_requires
 
     def _target_paths(self, root: str) -> [Path, Path]:
         root = Path(root) if root is not None else self.source_path
@@ -172,46 +171,61 @@ class Project:
             if target.name == name:
                 return target
 
-    def collect_requirements(self):
-        requirements = self.requires
-        build_requirements = self.build_requires
-        requires_options = self.requires_options
-        for name, project in self.subprojects.items():
-            self._logger.info(f'Collecting requirements of {name} ({project.source_path})')
-            requirements.extend(project.requires)
-            build_requirements.extend(project.build_requires)
-            requires_options.update(project.requires_options)
-        return list(set(requirements)), list(set(build_requirements)), dict(), requires_options
+    @collectable
+    def requires(self):
+        return self._requires
+
+    @collectable
+    def build_requires(self):
+        return self._build_requires
+
+    @collectable
+    def options(self):
+        return self._options
+
+    @collectable
+    def default_options(self):
+        return self._default_options
+
+    @collectable
+    def settings(self):
+        return self._settings
+
+    @property
+    def conan_refs(self):
+        return [ConanFileReference.loads(req) for req in self.requires] + [ConanFileReference.loads(req) for req in self.build_requires]
+
+    @property
+    def conan_packages(self):
+        return [ref.name for ref in self.conan_refs]
+
+    @property
+    def uses_conan(self):
+        return bool(len(self.conan_packages))
 
     def install_requirements(self):
-        requirements, build_requirements, options, default_options = self.collect_requirements()
-
-        if len(requirements) == 0 and len(build_requirements) == 0:
-            self._logger.debug('project has no requirements')
+        if not self.uses_conan:
+            self._logger.info('project has no requirements')
             return
         conan = get_conan()
-        if not conan.app:
-            conan.create_app()
-
-        self._conan_refs = [ConanFileReference.loads(req) for req in requirements]
-        self._conan_refs.extend([ConanFileReference.loads(req) for req in build_requirements])
-        self.conan_packages = [ref.name for ref in self._conan_refs]
         recorder = ActionRecorder()
         manifest_folder = None
         manifest_verify = False
         manifest_interactive = False
         lockfile = None
         profile_names = None
-        Project.settings.append(f'build_type={Project.build_type}')
-        default_options = [f'{key}={value}' for key, value in default_options.items()]
+        self.settings['build_type'] = Project.build_type
+        settings = [f'{key}={value}' for key, value in self.settings.items() if value is not None]
+        default_options = [] # [f'{key}={value}' for key, value in self.default_options.items() if value is not None]
         env = None
-        graph_info = get_graph_info(profile_names, Project.settings, default_options, env, self.build_path, None,
+        graph_info = get_graph_info(profile_names, settings, default_options, env, self.build_path, None,
                                     conan.app.cache, conan.app.out,
                                     name=None, version=None, user=None, channel=None,
                                     lockfile=lockfile)
+        app: ConanApp = conan.app
         remotes = conan.app.load_remotes(remote_name=None, update=True)
         deps_install(app=conan.app,
-                     ref_or_path=self._conan_refs,
+                     ref_or_path=self.conan_refs,
                      install_folder=self.build_path,
                      remotes=remotes,
                      graph_info=graph_info,
@@ -224,7 +238,6 @@ class Project:
                      no_imports=False,
                      recorder=recorder)
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
-        self._uses_conan = True
 
     @property
     def is_root(self):
@@ -397,8 +410,10 @@ class Project:
             project.install(destination)
 
     def package(self):
-        conanfile_path = str(self.build_path / 'conanfile.py')
-        open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py').render())
+        conanfile_path = self.source_path / 'conanfile.py'
+        if not conanfile_path.exists():
+            self._logger.info("You have no conan file... I'm creating it for you !")
+            open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py').render())
 
         conan = get_conan()
-        conan.create(conanfile_path)
+        conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder)

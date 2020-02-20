@@ -26,7 +26,7 @@ def cli(ctx, verbose, out_directory, clean, setting, build_type):
         out_directory = Path(out_directory) if out_directory else Project._root_project.build_path
         if out_directory.exists():
             shutil.rmtree(out_directory)
-    Project.settings = list(setting)
+    Project.root_project.settings = {setting.split('=') for setting in setting}
     Project.build_type = build_type
     if out_directory:
         Project.set_build_path(Path(out_directory))

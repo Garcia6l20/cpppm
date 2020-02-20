@@ -1,8 +1,8 @@
 import os
-from conans import ConanFile, CMake, tools
+from conans import ConanFile, CMake
 
 
-class XdevCoreTestConan(ConanFile):
+class ExamplesCMakeTest(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "cmake_find_package_multi", "cmake"
 
@@ -11,8 +11,5 @@ class XdevCoreTestConan(ConanFile):
         cmake.configure()
         cmake.build()
 
-    def imports(self):
-        self.copy("xdev.cmake", "cmake", "cmake")
-
     def test(self):
-        self.run(os.path.join("bin", "xdev-core-test-package"))
+        self.run(os.path.join("bin", "cpppm-examples-cmake-test-package"))
