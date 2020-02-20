@@ -16,26 +16,7 @@ from .executable import Executable
 from .library import Library
 from .target import Target
 from .utils import Runner
-from .utils.decorators import list_property, classproperty
-
-
-class collectable(list_property):
-    def __init__(self, fget: Callable[[object], List]):
-        super().__init__(fget)
-        self.fget = fget
-
-    def __get__(self, obj: 'Project', _obj_type):
-        collected = self.fget(obj)
-        if isinstance(collected, tuple):
-            collected = set(collected)
-        for project in obj.subprojects.values():
-            prop = self.fget(project)
-            if isinstance(collected, dict) or isinstance(collected, set):
-                collected.update(prop)
-            else:
-                collected.extend(prop)
-
-        return collected
+from .utils.decorators import classproperty, collectable
 
 
 class Project:
@@ -85,7 +66,7 @@ class Project:
         self._conan_refs = None
 
         self.generators = []
-        self.subprojects: Dict[str, Project] = dict()
+        self._subprojects: List[Project] = list()
 
         if Project._root_project is None:
             Project._root_project = self
@@ -121,6 +102,10 @@ class Project:
     @property
     def lib_path(self):
         return self.build_path.joinpath('lib')
+
+    @property
+    def subprojects(self):
+        return self._subprojects
 
     def _target_paths(self, root: str) -> [Path, Path]:
         root = Path(root) if root is not None else self.source_path
@@ -171,23 +156,23 @@ class Project:
             if target.name == name:
                 return target
 
-    @collectable
+    @collectable(subprojects)
     def requires(self):
         return self._requires
 
-    @collectable
+    @collectable(subprojects)
     def build_requires(self):
         return self._build_requires
 
-    @collectable
+    @collectable(subprojects)
     def options(self):
         return self._options
 
-    @collectable
+    @collectable(subprojects)
     def default_options(self):
         return self._default_options
 
-    @collectable
+    @collectable(subprojects)
     def settings(self):
         return self._settings
 
@@ -247,8 +232,8 @@ class Project:
         """Generates CMake stuff"""
 
         # generate subprojects
-        for name, project in self.subprojects.items():
-            self._logger.info(f'Generating {name} ({project.source_path})')
+        for project in self.subprojects:
+            self._logger.info(f'Generating {project.name} ({project.source_path})')
             project.generate()
 
         def relative_source_path(path: Union[Path, str]):
@@ -336,7 +321,7 @@ class Project:
         for t in self.targets:
             if t.name == name:
                 return t
-        for _, project in self.subprojects.items():
+        for project in self.subprojects:
             t = project.target(name)
             if t:
                 return t
@@ -359,7 +344,7 @@ class Project:
         spec.loader.exec_module(module)
         subproject = module.project
         Project.current_project = self
-        self.subprojects[name] = subproject
+        self._subprojects.append(subproject)
         return subproject
 
     def set_event(self, func):
@@ -406,7 +391,7 @@ class Project:
                 header.copy(dest.parent)
 
         # subprojects
-        for _, project in self.subprojects.items():
+        for project in self.subprojects:
             project.install(destination)
 
     def package(self):

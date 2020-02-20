@@ -58,7 +58,7 @@ class classproperty(property):
         return classmethod(self.fget).__get__(None, owner)()
 
 
-class collectable(list_property):
+class collectable_property(list_property):
     def __init__(self, fget):
         super().__init__(fget)
         self.rget = None
@@ -68,7 +68,8 @@ class collectable(list_property):
         collected = self.fget(obj)
         collected = type(collected)(collected)
         assert type(collected) != tuple
-        for sub in self.rget(obj):
+        subs = self.rget(obj) if callable(self.rget) else self.rget.__get__(obj, type(obj))
+        for sub in subs:
             assert type(sub) == obj_type
             prop = self.__get__(sub, type(sub))
             if isinstance(collected, dict) or isinstance(collected, set):
@@ -81,3 +82,11 @@ class collectable(list_property):
     def recurse(self, rget):
         self.rget = rget
         return self
+
+
+def collectable(recurse):
+    def decorator(fget):
+        prop = collectable_property(fget)
+        prop.recurse(recurse)
+        return prop
+    return decorator

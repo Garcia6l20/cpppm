@@ -1,3 +1,4 @@
+from cpppm.utils.decorators import collectable
 
 
 class Data:
@@ -8,28 +9,21 @@ class Data:
         self._d = dict()
         self._childs = []
 
+    @property
     def childs(self):
         return self._childs
 
-    @collectable
+    @collectable(childs)
     def l(self):
         return self._l
 
-    @l.recurse
-    def l(self):
-        return self.childs()
-
-    @collectable
+    @collectable(childs)
     def s(self):
         return self._s
 
-    s.recurse(childs)
-
-    @collectable
+    @collectable(childs)
     def d(self):
         return self._d
-
-    d.recurse(childs)
 
 
 def create_data(attr):
@@ -39,19 +33,19 @@ def create_data(attr):
     setattr(c0, attr, 3)
     setattr(c0, attr, 4)
     c1 = Data()
-    c0._childs.append(c1)
+    c0.childs.append(c1)
     setattr(c1, attr, "01")
     setattr(c1, attr, "02")
     setattr(c1, attr, 7)
     setattr(c1, attr, 8)
     c2 = Data()
-    c1._childs.append(c2)
+    c1.childs.append(c2)
     setattr(c2, attr, 9)
     setattr(c2, attr, 10)
     setattr(c2, attr, 11)
     setattr(c2, attr, 12)
     c3 = Data()
-    c1._childs.append(c3)
+    c1.childs.append(c3)
     setattr(c3, attr, 9)
     setattr(c3, attr, 10)
     setattr(c3, attr, 11)

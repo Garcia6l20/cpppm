@@ -39,7 +39,7 @@ add_custom_target({{ output.name }}-generator DEPENDS {{ output.as_posix() }})
 {% endfor %}
 
 # subprojects
-{% for _, subproject in project.subprojects.items() %}
+{% for subproject in project.subprojects %}
 add_subdirectory({{subproject.build_path | absolute_path }} {{subproject.build_path | absolute_path }})
 {% endfor %}
 
