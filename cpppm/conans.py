@@ -25,6 +25,7 @@ class ConanFile(ConanConanFile):
             del self.options.fPIC
 
     def build(self):
+        ConanFile.project.install_requirements()
         ConanFile.project.generate()
         ConanFile.project.build()
 

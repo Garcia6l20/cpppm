@@ -1,6 +1,7 @@
 import importlib.util
 import inspect
 import platform
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -172,6 +173,10 @@ class Project:
     def default_options(self):
         return self._default_options
 
+    @property
+    def dependencies_options(self):
+        return dict(filter(lambda it: re.compile(r'.+:.+').match(it[0]), self.default_options.items()))
+
     @collectable(subprojects)
     def settings(self):
         return self._settings
@@ -201,13 +206,12 @@ class Project:
         profile_names = None
         self.settings['build_type'] = Project.build_type
         settings = [f'{key}={value}' for key, value in self.settings.items() if value is not None]
-        default_options = [] # [f'{key}={value}' for key, value in self.default_options.items() if value is not None]
+        default_options = [f'{key}={value}' for key, value in self.dependencies_options.items()]
         env = None
         graph_info = get_graph_info(profile_names, settings, default_options, env, self.build_path, None,
                                     conan.app.cache, conan.app.out,
                                     name=None, version=None, user=None, channel=None,
                                     lockfile=lockfile)
-        app: ConanApp = conan.app
         remotes = conan.app.load_remotes(remote_name=None, update=True)
         deps_install(app=conan.app,
                      ref_or_path=self.conan_refs,
@@ -357,7 +361,6 @@ class Project:
         logger = self._logger
 
         def _copy(self: Path, target: Path):
-            assert self.is_file()
             logger.info(f'Copying {self} -> {target}')
 
             target.mkdir(parents=True, exist_ok=True)
