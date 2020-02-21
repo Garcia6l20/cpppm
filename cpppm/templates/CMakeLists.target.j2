@@ -7,8 +7,9 @@ add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_p
 {% endif -%}
 {{target.command}}({{target.name}} {{target.type}}
 {%- for source in target.sources %}
-    {{ source | absolute_path }}
+    {{ source }}
 {%- endfor %}
+    {{ project.script_path }}
 )
 {% if target.include_dirs | length %}
 target_include_directories({{target.name}} PUBLIC

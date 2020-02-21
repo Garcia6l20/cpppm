@@ -62,6 +62,9 @@ class Event:
     def function_name(self):
         return self.func.__name__
 
+    def __str__(self):
+        return f'{self.project.name}.{self.function_name}'
+
     @property
     def type_str(self):
         return self.event_type.name
@@ -124,3 +127,6 @@ class generator(Event):
         if cwd is None:
             cwd = Project.build_path
         super().__init__(EventKind.GENERATOR, PathList(cwd, filepaths), *args, depends=depends, cwd=cwd, **kwargs)
+
+    def __str__(self):
+        return super().__str__()

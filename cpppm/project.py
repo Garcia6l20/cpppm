@@ -1,5 +1,6 @@
 import importlib.util
 import inspect
+import os
 import platform
 import re
 import shutil
@@ -47,9 +48,10 @@ class Project:
         if not Project.root_project:
             self.build_path = _get_build_path(self.source_path)
             Project._root_project = self
+            self.build_relative = '.'
         else:
-            rel = self.source_path.relative_to(Project.root_project.source_path)
-            self.build_path = (Project.root_project.build_path / rel).absolute()
+            self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
+            self.build_path = (Project.root_project.build_path / self.build_relative).absolute()
         self.build_path.mkdir(exist_ok=True, parents=True)
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
