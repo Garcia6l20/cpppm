@@ -23,13 +23,11 @@ def cli(ctx, verbose, out_directory, clean, setting, build_type):
     if not Project.current_project.is_root:
         return
     if clean:
-        out_directory = Path(out_directory) if out_directory else Project._root_project.build_path
+        out_directory = Path(out_directory) if out_directory else Project.root_project.build_path
         if out_directory.exists():
             shutil.rmtree(out_directory)
     Project.root_project.settings = {setting.split('=') for setting in setting}
     Project.build_type = build_type
-    if out_directory:
-        Project.set_build_path(Path(out_directory))
     Project.current_project.build_path.mkdir(exist_ok=True)
     if not Project.current_project.build_path.exists():
         raise RuntimeError('Failed to create build directory: {build_directory}')
@@ -113,4 +111,4 @@ def test(ctx):
 def run(ctx, target, args):
     """Runs the given TARGET with given ARGS."""
     ctx.invoke(build)
-    Project._root_project.run(target, *args)
+    Project.root_project.run(target, *args)

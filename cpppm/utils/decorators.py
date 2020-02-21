@@ -1,21 +1,26 @@
-import contextlib
 import os
 from collections.abc import Iterable
+from functools import wraps
 from pathlib import Path
 from typing import Callable, List, Set, Union, Mapping
 
 
-@contextlib.contextmanager
 def working_directory(path: Path, create=True):
-    """Changes working directory and returns to previous on exit."""
-    prev_cwd = Path.cwd()
-    if create:
-        path.mkdir(exist_ok=True)
-    os.chdir(str(path.absolute()))
-    try:
-        yield
-    finally:
-        os.chdir(str(prev_cwd))
+    def decorator(func):
+        @wraps(func)
+        def wrapper():
+            """Changes working directory and returns to previous on exit."""
+            prev_cwd = Path.cwd()
+            if create:
+                path.mkdir(exist_ok=True)
+            os.chdir(str(path.absolute()))
+            try:
+                result = func()
+            finally:
+                os.chdir(str(prev_cwd))
+            return result
+        return wrapper
+    return decorator
 
 
 class list_property:
@@ -89,4 +94,5 @@ def collectable(recurse):
         prop = collectable_property(fget)
         prop.recurse(recurse)
         return prop
+
     return decorator

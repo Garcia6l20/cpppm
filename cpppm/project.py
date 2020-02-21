@@ -5,9 +5,9 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Union, cast, Any, Dict, Callable, Set, Tuple
+from typing import List, Union, cast, Any, Dict
 
-from conans.client.conan_api import get_graph_info, ConanApp
+from conans.client.conan_api import get_graph_info
 from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
@@ -44,11 +44,13 @@ class Project:
         self._root_path = self.script_path.parent.absolute()
 
         # adjust output dir
-        if not Project._root_project:
-            self.build_path = _get_build_path()
+        if not Project.root_project:
+            self.build_path = _get_build_path(self.source_path)
+            Project._root_project = self
         else:
-            self.build_path = Project._root_project.build_path / self.name
-        self.build_path.mkdir(exist_ok=True)
+            rel = self.source_path.relative_to(Project.root_project.source_path)
+            self.build_path = (Project.root_project.build_path / rel).absolute()
+        self.build_path.mkdir(exist_ok=True, parents=True)
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
@@ -69,8 +71,6 @@ class Project:
         self.generators = []
         self._subprojects: List[Project] = list()
 
-        if Project._root_project is None:
-            Project._root_project = self
         Project.projects.append(self)
         Project.current_project = self
 
@@ -183,7 +183,8 @@ class Project:
 
     @property
     def conan_refs(self):
-        return [ConanFileReference.loads(req) for req in self.requires] + [ConanFileReference.loads(req) for req in self.build_requires]
+        return [ConanFileReference.loads(req) for req in self.requires] + [ConanFileReference.loads(req) for req in
+                                                                           self.build_requires]
 
     @property
     def conan_packages(self):
@@ -230,7 +231,7 @@ class Project:
 
     @property
     def is_root(self):
-        return self.build_path == _get_build_path()
+        return self.build_path == _get_build_path(self.source_path)
 
     def generate(self):
         """Generates CMake stuff"""
@@ -257,7 +258,7 @@ class Project:
         def to_library(lib: Union[Library, str]):
             if type(lib) is Library:
                 return lib.name
-            elif lib in Project._root_project.conan_packages:
+            elif lib in Project.root_project.conan_packages:
                 return f'CONAN_PKG::{lib}'
             else:
                 return lib
@@ -288,6 +289,7 @@ class Project:
             'cache': {
                 'subdirs': []
             },
+            'root_project': Project.root_project,
             'python': Path(sys.executable).as_posix(),
             'pythonpath': self.script_path.parent.parent.absolute().as_posix(),
         })
