@@ -13,7 +13,6 @@ class Target:
         self._bin_path = Project.current_project.bin_path
         self._lib_path = Project.current_project.lib_path
         self.name = name
-        self.export_header = None
         self._source_path = source_path
         self._build_path = build_path
 

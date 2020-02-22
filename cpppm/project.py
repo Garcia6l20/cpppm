@@ -1,17 +1,17 @@
 import importlib.util
 import inspect
 import os
-import platform
 import re
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Union, cast, Any, Dict, Optional
+from typing import List, Union, cast, Any, Dict, Optional, Type
 
 from conans.client.conan_api import get_graph_info
 from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
+from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter, UnmappedToLayoutError
 
 from . import _jenv, _get_logger, _get_build_path, get_conan
 from .executable import Executable
@@ -30,9 +30,16 @@ class Project:
     build_type = 'Debug'
     __all_targets: List[Target] = []
 
-    def __init__(self, name, version: str = None):
+    layout: Type[Layout] = DefaultProjectLayout
+    dist_layout: Type[Layout] = DefaultDistLayout
+
+    def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
         self.name = name
+        if not package_name:
+            package_name = name
+        self.package_name = package_name
         self.version = version
+        self.layout = project_layout or Project.layout
         self.license = None
         self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
@@ -53,6 +60,7 @@ class Project:
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
             self.build_path = (Project.root_project.build_path / self.build_relative).absolute()
         self.build_path.mkdir(exist_ok=True, parents=True)
+        self.layout.public_includes += [str(self.build_path.as_posix())]
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
@@ -65,6 +73,7 @@ class Project:
         self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
         self._settings: Dict[str, Any] = {"os": None, "compiler": None, "build_type": None, "arch": None}
+        self._build_modules: List[str] = []
 
         self._default_executable = None
         self._conan_infos = None
@@ -109,6 +118,10 @@ class Project:
     @property
     def subprojects(self):
         return self._subprojects
+
+    @property
+    def dist_converter(self):
+        return LayoutConverter(self.layout, self.dist_layout)
 
     def _target_paths(self, root: str) -> [Path, Path]:
         root = Path(root) if root is not None else self.source_path
@@ -182,6 +195,10 @@ class Project:
     @collectable(subprojects)
     def settings(self):
         return self._settings
+
+    @collectable(subprojects)
+    def build_modules(self):
+        return self._build_modules
 
     @property
     def conan_refs(self):
@@ -363,6 +380,8 @@ class Project:
 
         project = Project.get_project(name)
         if project is not None:
+            if project == self:
+                raise RuntimeError('Recursive project inclusion is not allowed')
             return project  # already included
 
         spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
@@ -390,30 +409,38 @@ class Project:
 
         Path.copy = _copy
 
-        bin_dest = destination / 'bin'
+        conv = self.dist_converter
+        conv.anchor = destination
+        conv.root = Path(os.path.commonpath([self.build_path, self.source_path]))
+
+        def do_install(item):
+            if isinstance(item, tuple):
+                item[0].copy(item[1])
+            else:
+                for src, dst in item:
+                    src.copy(dst)
 
         # copy executables
         for exe in self._executables:
-            exe.bin_path.copy(bin_dest)
-
-        lib_dest = destination / 'lib'
-
-        if platform.system() != 'Windows':
-            bin_dest = lib_dest
-
-        header_dest = destination / 'include'
+            do_install(conv(exe.bin_path))
 
         # copy libraries/headers
         for lib in self._libraries:
             if lib.binary:
-                lib.bin_path.copy(bin_dest)
+                do_install(conv(lib.bin_path))
             if lib.library:
-                lib.lib_path.copy(lib_dest)
+                do_install(conv(lib.lib_path))
 
-            # copy headers
-            for header in lib.public_headers:
-                dest = header_dest / header.relative_to(lib.source_path / 'include')
-                header.copy(dest.parent)
+        try:
+            for lib in self._libraries:
+                do_install(conv(lib.public_headers))
+            do_install(conv(self.build_modules))
+        except UnmappedToLayoutError as err:
+            raise UnmappedToLayoutError(err.item,
+                                        f'You are trying to install {err.item} '
+                                        'but is not defined in the project layout, '
+                                        'you have to extend the default layout with your own paths '
+                                        f'(during installation of {self.name})')
 
         # subprojects
         for project in self.subprojects:

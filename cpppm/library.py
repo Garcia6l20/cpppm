@@ -1,7 +1,9 @@
 import platform
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Pattern, Set
+
+from cpppm.utils.decorators import list_property
 
 from .target import Target
 
@@ -9,7 +11,19 @@ from .target import Target
 class Library(Target):
     static: bool = False
 
-    header_pattern = r'.*\.h(pp)?$'
+    def __init__(self, name: str, source_path: Path, build_path: Path):
+        super().__init__(name, source_path, build_path)
+        self.export_header = None
+        self._header_pattern: Set[str] = {r'.*\.h(pp)?$'}
+        self._public_pattern: Set[str] = {r'.*/include/.+'}
+
+    @list_property
+    def header_pattern(self) -> Set[str]:
+        return self._header_pattern
+
+    @list_property
+    def public_pattern(self) -> Set[str]:
+        return self._public_pattern
 
     @property
     def shared(self) -> bool:
@@ -58,19 +72,20 @@ class Library(Target):
 
     @property
     def headers(self) -> List[Path]:
+        pattern = '|'.join(pattern for pattern in self.header_pattern)
         out: List[Path] = []
         for source in self.sources:
-            if re.match(Library.header_pattern, str(source)):
+            if re.match(pattern, str(source)):
                 out.append(source)
         return out
 
     @property
     def public_headers(self) -> List[Path]:
         out: List[Path] = []
+        pattern = '|'.join(pattern for pattern in self.public_pattern)
         for header in self.headers:
-            try:
-                header.relative_to(self.source_path / 'include')
+            if re.match(pattern, str(header)):
                 out.append(header)
-            except ValueError:
-                pass
+        if self.export_header:
+            out.append(self.build_path / Path(self.export_header))
         return out
