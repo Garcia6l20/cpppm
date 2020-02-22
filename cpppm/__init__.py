@@ -48,7 +48,7 @@ def _get_build_path(source_path):
             compiler = settings['compiler']
             compiler += '-' + settings['compiler.version']
             arch = settings['arch']
-            __build_path = (source_path / f'build-{compiler}-{arch}').absolute()
+            __build_path = (source_path / 'build' / f'{compiler}-{arch}').absolute()
     return __build_path
 
 

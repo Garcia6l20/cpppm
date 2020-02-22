@@ -20,7 +20,14 @@ include(GenerateExportHeader)
 project({{project.name}})
 
 {% if project.uses_conan and project.is_root -%}
+# conan setup
+if(NOT EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    message(STATUS "cpppm: installing requirements to ${CMAKE_BINARY_DIR}")
+    execute_process(COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} install-requirements)
+endif()
+
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+
 conan_basic_setup(TARGETS)
 conan_include_build_modules()
 {%- endif %}
@@ -28,9 +35,9 @@ conan_include_build_modules()
 message(STATUS "cpppm: generators: {{ project.generators }}")
 {%- for generator in project.generators %}
 message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
-add_custom_command(OUTPUT {{ generator.target | to_dependencies }}
-    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} __cpppm_event__ {{ generator.sha1 }}
-    DEPENDS {{ generator.project.script_path | absolute_path }} {{ generator.depends | to_dependencies }}
+add_custom_command(OUTPUT {{ generator.target | to_dependencies(project) }}
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ generator.sha1 }}
+    DEPENDS {{ generator.project.script_path | to_project_link(project) }} {{ generator.depends | to_dependencies(project) }}
     COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}
@@ -40,7 +47,7 @@ add_custom_target({{ output.name }}-generator DEPENDS {{ output.as_posix() }})
 
 # subprojects
 {% for subproject in project.subprojects %}
-add_subdirectory({{subproject.build_path | absolute_path }} {{subproject.build_path | absolute_path }})
+add_subdirectory({{subproject.build_relative }})
 {% endfor %}
 
 {% endif %}

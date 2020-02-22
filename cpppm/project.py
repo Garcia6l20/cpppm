@@ -6,7 +6,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Union, cast, Any, Dict
+from typing import List, Union, cast, Any, Dict, Optional
 
 from conans.client.conan_api import get_graph_info
 from conans.client.manager import deps_install
@@ -265,19 +265,37 @@ class Project:
             else:
                 return lib
 
-        def to_dependencies(deps: List[Union[Path, Target]]):
+        def to_dependencies(deps: List[Union[Path, Target]], project: Optional[Project]):
             str_deps = []
             for dep in deps:
                 if isinstance(dep, Target):
                     str_deps.append(dep.name)
                 elif isinstance(dep, Path):
-                    str_deps.append(dep.absolute().as_posix())
+                    path = os.path.relpath(dep, project.build_path)
+                    str_deps.append(path)
                 else:
                     str_deps.append(dep)
             return ' '.join(str_deps)
 
+        # generate source symlinks
+
+        def make_project_link(project):
+            symlink_path = project.build_path.joinpath('project')
+
+            if not symlink_path.exists():
+                os.symlink(project.source_path, symlink_path, target_is_directory=True)
+
+        make_project_link(Project.root_project)
+        for project in self.subprojects:
+            make_project_link(project)
+
+        def to_project_link(path, project):
+            path = os.path.relpath(path, project.source_path)
+            return 'project/' + path  # os.path.relpath(path, Project.root_project.source_path)
+
         self.build_path.mkdir(exist_ok=True)
         _jenv.filters.update({
+            'to_project_link': to_project_link,
             'absolute_path': absolute_path,
             "relative_source_path": relative_source_path,
             "relative_build_path": relative_build_path,

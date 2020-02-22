@@ -7,9 +7,9 @@ add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_p
 {% endif -%}
 {{target.command}}({{target.name}} {{target.type}}
 {%- for source in target.sources %}
-    {{ source }}
+    {{ source | to_project_link(project) }}
 {%- endfor %}
-    {{ project.script_path }}
+    {{ project.script_path | to_project_link(project) }}
 )
 {% if target.include_dirs | length %}
 target_include_directories({{target.name}} PUBLIC
@@ -49,12 +49,12 @@ message(STATUS "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
 # {{ event.event_type }}
 {%- if event.event_type == 0 %}
 execute_process(
-    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} __cpppm_event__ {{ event.sha1 }}
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 {% elif event.event_type != 3 %}
 add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
-    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} __cpppm_event__ {{ event.sha1 }}
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
     COMMENT "-- cpppm: firing {{target.name}} ({{ event.event_type }})"
 )
 {% endif %}
@@ -62,5 +62,5 @@ add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
 {% endif -%}
 # add_dependencies({{ target.name }} cpppm-update)
 {%- if target.dependencies | length %}
-target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies }})
+target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies(project) }})
 {% endif -%}
