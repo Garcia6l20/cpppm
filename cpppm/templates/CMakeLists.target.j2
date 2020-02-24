@@ -1,6 +1,6 @@
 {% if ( target.subdirs | length ) and not ( target.subdirs in cache.subdirs ) %}
 {%- for subdir in target.subdirs %}
-add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_path }}/{{ target.name }}/{{ subdir.name }} )
+add_subdirectory("{{ subdir | absolute_path }}" "{{ project.build_path | absolute_path }}/{{ target.name }}/{{ subdir.name }}")
 {%- endfor %}
 {% do cache.subdirs.append(target.subdirs) %}
 # {{ cache }}
@@ -14,9 +14,10 @@ add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_p
 {% if target.include_dirs | length %}
 target_include_directories({{target.name}} PUBLIC
 {%- for include_dir in target.include_dirs %}
-    {{ include_dir | absolute_path }}
+    "{{ include_dir | absolute_path }}"
 {%- endfor %}
-    {{ target.build_path | absolute_path }}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/include
 )
 {% endif -%}
 {%- if target.compile_options | length %}
@@ -60,7 +61,13 @@ add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
 {% endif %}
 {% endfor %}
 {% endif -%}
-# add_dependencies({{ target.name }} cpppm-update)
+{%- if target.generators | length %}
+add_dependencies({{ target.name }} {% for generator in target.generators %}{{ generator.name }}{% endfor %})
+target_sources({{ target.name }} PUBLIC {% for generator in target.generators %}
+    {{ generator.target | to_dependencies(project) }}
+{% endfor -%}
+)
+{% endif -%}
 {%- if target.dependencies | length %}
 target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies(project) }})
 {% endif -%}

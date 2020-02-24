@@ -49,10 +49,12 @@ def install_requirements():
 
 
 @cli.command()
+@click.option('--export-compile-commands', is_flag=True, default=False,
+              help='export commands from CMake (can be used by clangd)')
 @click.pass_context
-def generate(ctx):
+def generate(ctx, export_compile_commands):
     """Generates conan/CMake stuff."""
-    ctx.invoke(install_requirements)
+    Project._export_compile_commands = export_compile_commands
     Project.root_project.generate()
 
 

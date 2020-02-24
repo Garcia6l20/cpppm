@@ -53,7 +53,8 @@ class dependencies_property(list_property):
 
     def __set__(self, obj, val):
         if hasattr(val, 'event'):
-            self.fget(obj).extend(val.event.target)
+            print(f'{obj.name} depends on {val.event}')
+            obj.generators.append(val.event)
         else:
             super().__set__(obj, val)
 

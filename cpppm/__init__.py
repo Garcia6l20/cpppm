@@ -15,11 +15,13 @@ _output_dir_option = "--out-directory", "-o"
 
 __build_path = None
 
-__conan = Conan()
+__conan = None
 
 
 def get_conan():
-    if __conan.app is None:
+    global __conan
+    if __conan is None:
+        __conan, _, _ = Conan.factory()
         __conan.create_app()
     return __conan
 

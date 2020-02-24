@@ -1,0 +1,51 @@
+from pathlib import Path
+from conans import ConanFile, CMake, tools
+
+
+class {{ project.title }}Conan(ConanFile):
+    name = "{{ project.package_name }}"
+    version = "{{ project.version }}"
+    license = "{{ project.license }}"
+    author = "{{ project.author }}"
+    url = "{{ project.url }}"
+    description = "{{ project.description }}"
+    {% if project.topics %}topics = {{ project.topics }}{% endif %}
+    settings = {{ project.settings }}
+    generators = "cmake", "cmake_multi"
+    # scm = {
+    #    "type": "git",  # Use "type": "svn", if local repo is managed using SVN
+    #    "url": "https://github.com/Garcia6l20/xdev-core.git",
+    #    "revision": "auto"
+    #}
+    requires = {{ project.requires }}
+    build_requires = {{ project.build_requires }}
+    options = {{ project.options }}
+    default_options = {{ project.default_options }}
+    # no_copy_source = True
+    # exports_sources = "./*"
+
+    def deploy(self):
+        self.copy("*", dst="bin", src="bin")
+
+    def configure(self):
+        if self.settings.os == "Windows":
+            del self.options.fPIC
+
+    def build(self):
+        # load project
+        import importlib.machinery as machinery
+        import uuid
+        loader = machinery.SourceFileLoader(str(uuid.uuid1()), str(Path(self.source_folder).joinpath("project.py")))
+        self.project = loader.load_module()
+
+        self.project.generate()
+        self.project.build()
+
+    def package(self):
+        self.project.install(self.package_folder)
+
+    def package_info(self):
+        self.cpp_info.libs = tools.collect_libs(self)
+        self.cpp_info.bindirs = ['bin']
+        build_modules = [str(path) for _, path in self.project.dist_converter(self.project.build_modules)]
+        self.cpp_info.build_modules.append(build_modules)

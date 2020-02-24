@@ -105,8 +105,8 @@ class LayoutConverter:
                     src = match.group(1)
                     dst = getattr(self.dst, attr)[0]
                     trailing = match.group(2)
-                    out_path = (root or self.root) / (anchor or self.anchor) / dst / trailing
+                    out_path = (anchor or self.anchor) / dst / trailing
                     if self._logger:
                         self._logger.info(f'matched: {attr}, {src} -> {dst}: {out_path}')
-                    return in_path, out_path
+                    return (root or self.root) / in_path, out_path
             raise UnmappedToLayoutError(in_path)

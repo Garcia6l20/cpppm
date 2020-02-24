@@ -18,6 +18,7 @@ class Target:
 
         self._sources = PathList(source_path)
         self._dependencies = PathList(build_path)
+        self.generators = []
         self._include_dirs = PathList(source_path)
         self._subdirs = PathList(build_path)
         self._link_libraries = []

@@ -1,6 +1,7 @@
 import importlib.util
 import inspect
 import os
+import platform
 import re
 import shutil
 import sys
@@ -32,6 +33,9 @@ class Project:
 
     layout: Type[Layout] = DefaultProjectLayout
     dist_layout: Type[Layout] = DefaultDistLayout
+
+    # export commands from CMake (can be used by clangd)
+    _export_compile_commands: False
 
     def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
         self.name = name
@@ -172,6 +176,14 @@ class Project:
             if target.name == name:
                 return target
 
+    @property
+    def sources(self):
+        out = []
+        for target in self.targets:
+            for source in target.sources:
+                out.append(source)
+        return out
+
     @collectable(subprojects)
     def requires(self):
         return self._requires
@@ -224,8 +236,9 @@ class Project:
         manifest_interactive = False
         lockfile = None
         profile_names = None
-        self.settings['build_type'] = Project.build_type
-        settings = [f'{key}={value}' for key, value in self.settings.items() if value is not None]
+        settings = self.settings
+        settings['build_type'] = Project.build_type
+        settings = [f'{key}={value}' for key, value in settings.items() if value is not None]
         default_options = [f'{key}={value}' for key, value in self.dependencies_options.items()]
         env = None
         graph_info = get_graph_info(profile_names, settings, default_options, env, self.build_path, None,
@@ -238,7 +251,7 @@ class Project:
                      install_folder=self.build_path,
                      remotes=remotes,
                      graph_info=graph_info,
-                     build_modes=None,
+                     build_modes=['missing'],
                      update=True,
                      manifest_folder=manifest_folder,
                      manifest_verify=manifest_verify,
@@ -257,7 +270,8 @@ class Project:
 
         # generate subprojects
         for project in self.subprojects:
-            self._logger.info(f'Generating {project.name} ({project.source_path})')
+            self._logger.info(f'Generating subproject {project.name} '
+                              f'({project.source_path.relative_to(self.source_path)}')
             project.generate()
 
         def relative_source_path(path: Union[Path, str]):
@@ -285,6 +299,7 @@ class Project:
         def to_dependencies(deps: List[Union[Path, Target]], project: Optional[Project]):
             str_deps = []
             for dep in deps:
+                print(f'{dep} ({project.name})')
                 if isinstance(dep, Target):
                     str_deps.append(dep.name)
                 elif isinstance(dep, Path):
@@ -294,13 +309,26 @@ class Project:
                     str_deps.append(dep)
             return ' '.join(str_deps)
 
-        # generate source symlinks
-
+        # generate source symlinks (or hard ones for poor featured os)
         def make_project_link(project):
             symlink_path = project.build_path.joinpath('project')
+            if platform.system() == 'Windows':
+                # I love windows... No it's a joke
+                # What is done here is bad... but If you don't like it you know what to do...
+                def _project_link(path: Path):
+                    target = symlink_path / path.relative_to(project.source_path)
+                    if target.exists():
+                        return
+                    if not target.parent.exists():
+                        target.parent.mkdir(parents=True)
+                    path.link_to(target)
 
-            if not symlink_path.exists():
-                os.symlink(project.source_path, symlink_path, target_is_directory=True)
+                _project_link(project.script_path)
+                for source in project.sources:
+                    _project_link(source)
+            else:
+                if not symlink_path.exists():
+                    os.symlink(project.source_path, symlink_path, target_is_directory=True)
 
         make_project_link(Project.root_project)
         for project in self.subprojects:
@@ -308,7 +336,7 @@ class Project:
 
         def to_project_link(path, project):
             path = os.path.relpath(path, project.source_path)
-            return 'project/' + path  # os.path.relpath(path, Project.root_project.source_path)
+            return (Path('project') / path).as_posix()  # os.path.relpath(path, Project.root_project.source_path)
 
         self.build_path.mkdir(exist_ok=True)
         _jenv.filters.update({
@@ -319,6 +347,7 @@ class Project:
             "to_library": to_library,
             "to_dependencies": to_dependencies,
         })
+        self._logger.info('Generating CMakeLists...')
         jlists = _jenv.get_template('CMakeLists.txt.j2')
         lists_file = open(str(self.build_path / 'CMakeLists.txt'), 'w')
         lists = jlists.render({
@@ -333,15 +362,31 @@ class Project:
         # self._logger.debug(lists)
         lists_file.write(lists)
 
+        if Project.root_project == self:
+            if Project._export_compile_commands:
+                self._logger.info('Exporting compilitation commands')
+                source_compile_commands = self.source_path.joinpath('compile_commands.json').absolute()
+                build_compile_commands = self.build_path.joinpath('compile_commands.json').absolute()
+                if source_compile_commands.exists():
+                    source_compile_commands.unlink()
+                build_compile_commands.symlink_to(build_compile_commands)
+        #     self._logger.info('Generating conanfile...')
+        #     conanfile = _jenv.get_template('conanfile.py.j2').render({
+        #         'project': self,
+        #     })
+        #     # self._logger.debug(lists)
+        #     open(str(self.source_path / 'conanfile.py'), 'w').write(conanfile)
+
     def build(self, target: str = None) -> int:
         runner = Runner("cmake", self.build_path)
+        self._logger.info(f'Building for configuration: {Project.build_type}')
         res = runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', '.')
         if res != 0:
             return res
         args = ['--build', '.']
         if target:
             args.extend(('--target', {target}))
-        args.extend(('--config', Project.build_type))
+        # args.extend(('--config', Project.build_type))
         return runner.run(*args)
 
     def run(self, target_name: str, *args):
@@ -404,8 +449,8 @@ class Project:
         def _copy(self: Path, target: Path):
             logger.info(f'Copying {self} -> {target}')
 
-            target.mkdir(parents=True, exist_ok=True)
-            shutil.copy(str(self.absolute().as_posix()), str(target.absolute().as_posix()))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(str(self.absolute().as_posix()), str(target.parent.absolute().as_posix()))
 
         Path.copy = _copy
 
@@ -453,4 +498,13 @@ class Project:
             open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py').render())
 
         conan = get_conan()
-        conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder)
+
+        # export
+        # deps install
+        # source
+        # package
+
+        conan.source(str(conanfile_path.absolute()))
+        # conan.package(str(conanfile_path.absolute()), str(self.build_path), None)
+        # conan.export(str(conanfile_path.absolute()), self.package_name, self.version)
+        # conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder)

@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 3.15)
 {% if project.name -%}
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+# clangd support
+{% if project._export_compile_commands -%}
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+{%- endif %}
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -19,20 +24,47 @@ include(GenerateExportHeader)
 
 project({{project.name}})
 
+{% if project.is_root -%}
+function(rerun_cpppm)
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Release)
+    endif()
+    execute_process(COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} -b ${CMAKE_BUILD_TYPE} ${ARGN})
+endfunction()
+
+add_custom_target(cpppm-generate
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} -b ${CMAKE_BUILD_TYPE}
+    SOURCES {{ root_project.script_path | absolute_path }}
+    COMMENT "-- cpppm: regenerating project"
+)
+
+{%- endif %}
+
 {% if project.uses_conan and project.is_root -%}
 # conan setup
-if(NOT EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    message(STATUS "cpppm: installing requirements to ${CMAKE_BINARY_DIR}")
-    execute_process(COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} install-requirements)
-endif()
+#if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "{{ project.build_type }}")
+#    rerun_cpppm(generate)
+#    message("cpppm CMakeLists.txt has been regenerated please re-run cmake")
+#    return()
+#endif()
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+#string(TOLOWER CMAKE_BUILD_TYPE _build_type)
+#set(CONAN_BUILDINFOS "{{ project.build_path | absolute_path }}/conanbuildinfo_${_build_type}.cmake")
+#set(CONAN_BUILDINFOS_MULTI "{{ project.build_path | absolute_path }}/conanbuildinfo_multi.cmake")
+#if(NOT EXISTS CONAN_BUILDINFOS)
+#    message(STATUS "cpppm: installing requirements to ${CONAN_BUILDINFOS}")
+#    rerun_cpppm(install-requirements)
+#endif()
 
+#include(${CONAN_BUILDINFOS_MULTI})
+
+set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON) # ??? https://cmake.org/pipermail/cmake/2015-December/062166.html
+
+include("{{ project.build_path | absolute_path }}/conanbuildinfo.cmake")
 conan_basic_setup(TARGETS)
 conan_include_build_modules()
 {%- endif %}
 
-message(STATUS "cpppm: generators: {{ project.generators }}")
 {%- for generator in project.generators %}
 message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
 add_custom_command(OUTPUT {{ generator.target | to_dependencies(project) }}
@@ -40,15 +72,13 @@ add_custom_command(OUTPUT {{ generator.target | to_dependencies(project) }}
     DEPENDS {{ generator.project.script_path | to_project_link(project) }} {{ generator.depends | to_dependencies(project) }}
     COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
-{% for output in generator.target %}
-add_custom_target({{ output.name }}-generator DEPENDS {{ output.as_posix() }})
-{% endfor %}
+add_custom_target({{ generator.name }} DEPENDS {{ generator.target | to_dependencies(project) }})
 {% endfor %}
 
 # subprojects
-{% for subproject in project.subprojects %}
-add_subdirectory({{subproject.build_relative }})
-{% endfor %}
+{% for subproject in project.subprojects -%}
+add_subdirectory({{ subproject.build_relative.as_posix() }})
+{% endfor -%}
 
 {% endif %}
 
