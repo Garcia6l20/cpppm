@@ -61,19 +61,21 @@ def generate(ctx):
 def configure(ctx):
     """Configures CMake stuff."""
     ctx.invoke(generate)
+    Project.root_project.configure()
 
 
 @cli.command()
+@click.option("--jobs", "-j", help="Number of build jobs", default=None)
 @click.argument("target", required=False)
 @click.pass_context
-def build(ctx, target):
+def build(ctx, jobs, target):
     """Builds the project."""
     source_dir = Path(sys.argv[0]).parent
     click.echo(f"Source directory: {str(source_dir.absolute())}")
     click.echo(f"Build directory: {str(Project.root_project.build_path.absolute())}")
     click.echo(f"Project: {Project.root_project.name}")
     ctx.invoke(configure)
-    rc = Project.root_project.build(target)
+    rc = Project.root_project.build(target, jobs)
     if rc != 0:
         click.echo(f'Build failed with return code: {rc}')
         exit(rc)

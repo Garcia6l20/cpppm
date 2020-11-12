@@ -234,7 +234,7 @@ class Project:
                 'options': self.requires_options,
             }))
 
-        conan.install(str(self.build_path / 'conanfile.txt'))
+        conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path)
 
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
 
@@ -323,15 +323,20 @@ class Project:
         # self._logger.debug(lists)
         lists_file.write(lists)
 
-    def build(self, target: str = None) -> int:
+    def configure(self) -> int:
         runner = Runner("cmake", self.build_path)
-        res = runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', '.')
-        if res != 0:
-            return res
+        return runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', '.')
+
+    def build(self, target: str = None, jobs: int = None) -> int:
+        runner = Runner("cmake", self.build_path)
         args = ['--build', '.']
         if target:
             args.extend(('--target', target))
         args.extend(('--config', Project.build_type))
+        if not jobs:
+            args.append('-j')
+        else:
+            args.extend(('-j', jobs))
         return runner.run(*args)
 
     def run(self, target_name: str, *args):
