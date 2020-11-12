@@ -443,9 +443,9 @@ class Project:
 
     def package(self):
         conanfile_path = self.source_path / 'conanfile.py'
-        if not conanfile_path.exists():
-            self._logger.info("You have no conan file... I'm creating it for you !")
-            open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py').render())
+        self._logger.info("You have no conan file... I'm creating it for you !")
+        open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py.j2').render({'project': self}))
 
         conan = get_conan()
-        conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder)
+        conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder,
+                     options=[f'{k}={v}' for k, v in self.requires_options.items()])
