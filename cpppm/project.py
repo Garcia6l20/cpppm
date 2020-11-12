@@ -159,6 +159,8 @@ class Project:
     def targets(self) -> List[Target]:
         targets: List[Target] = self._libraries.copy()
         targets.extend(self._executables)
+        # for _, project in self.subprojects.items():
+        #     targets.extend(project.targets)
         return targets
 
     @staticmethod
@@ -173,7 +175,7 @@ class Project:
         build_requirements = self.build_requires
         options = self.requires_options
         for name, project in self.subprojects.items():
-            self._logger.info(f'Collecting requirements of {name} ({project.source_path})')
+            self._logger.debug(f'Collecting requirements of {name} ({project.source_path})')
             requirements.extend(project.requires)
             build_requirements.extend(project.build_requires)
             options.update(project.requires_options)
@@ -216,7 +218,7 @@ class Project:
 
         # generate subprojects
         for name, project in self.subprojects.items():
-            self._logger.info(f'Generating {name} ({project.source_path})')
+            self._logger.debug(f'Generating {name} ({project.source_path})')
             project.generate()
 
         def relative_source_path(path: Union[Path, str]):

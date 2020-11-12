@@ -44,7 +44,7 @@ generate_export_header({{ target.name }} EXPORT_FILE_NAME {{ target.export_heade
 {% endif -%}
 {%- if target.events  %}
 {%- for event in target.events %}
-message(STATUS "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
+message(VERBOSE "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
 # {{ event.event_type }}
 {%- if event.event_type == 0 %}
 execute_process(COMMAND {{ python }} {{ event.event_path | absolute_path }}

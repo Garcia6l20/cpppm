@@ -76,7 +76,7 @@ class Event:
             kwargs.update(self.kwargs)
             from . import _get_logger
             logger = _get_logger(self, self.function_name)
-            logger.info(f'firing {self.function_name} with {args}, {kwargs}')
+            logger.debug(f'firing {self.function_name} with {args}, {kwargs}')
             return func(*args, **kwargs)
 
         Project.current_project.build_path.mkdir(exist_ok=True)
