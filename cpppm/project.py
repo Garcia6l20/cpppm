@@ -69,11 +69,13 @@ class Project:
         self._executables: List[Executable] = []
         self._requires: List[str] = list()
         self._build_requires: List[str] = list()
+        self._requires_options: List[str] = list()
         self.test_folder = None
         self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
         self._settings: Dict[str, Any] = {"os": None, "compiler": None, "build_type": None, "arch": None}
         self._build_modules: List[str] = []
+        self._requires_options: Dict[str, Any] = dict()
 
         self._default_executable = None
         self._conan_infos = None
@@ -181,6 +183,10 @@ class Project:
         return self._build_requires
 
     @collectable(subprojects)
+    def requires_options(self):
+        return self._requires_options
+
+    @collectable(subprojects)
     def options(self):
         return self._options
 
@@ -219,33 +225,17 @@ class Project:
             return
         conan = get_conan()
         recorder = ActionRecorder()
-        manifest_folder = None
-        manifest_verify = False
-        manifest_interactive = False
-        lockfile = None
-        profile_names = None
         self.settings['build_type'] = Project.build_type
-        settings = [f'{key}={value}' for key, value in self.settings.items() if value is not None]
-        default_options = [f'{key}={value}' for key, value in self.dependencies_options.items()]
-        env = None
-        graph_info = get_graph_info(profile_names, settings, default_options, env, self.build_path, None,
-                                    conan.app.cache, conan.app.out,
-                                    name=None, version=None, user=None, channel=None,
-                                    lockfile=lockfile)
-        remotes = conan.app.load_remotes(remote_name=None, update=True)
-        deps_install(app=conan.app,
-                     ref_or_path=self.conan_refs,
-                     install_folder=self.build_path,
-                     remotes=remotes,
-                     graph_info=graph_info,
-                     build_modes=None,
-                     update=True,
-                     manifest_folder=manifest_folder,
-                     manifest_verify=manifest_verify,
-                     manifest_interactive=manifest_interactive,
-                     generators=['cmake'],
-                     no_imports=False,
-                     recorder=recorder)
+
+        open(str(self.build_path / 'conanfile.txt'), 'w').write(
+            _jenv.get_template('conanfile.txt.j2').render({
+                'requires': self.requires,
+                'build_requires': self.build_requires,
+                'options': self.requires_options,
+            }))
+
+        conan.install(str(self.build_path / 'conanfile.txt'))
+
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
 
     @property

@@ -1,0 +1,20 @@
+[requires]
+{% for req in requires -%}
+{{ req }}
+{% endfor %}
+
+{% if build_requires | length -%}
+[build_requires]
+{% for req in build_requires -%}
+{{ req }}
+{% endfor %}
+{%- endif %}
+
+[options]
+{% for k, v in options.items() -%}
+{{ k }}={{ v }}
+{% endfor %}
+
+[generators]
+cmake
+
