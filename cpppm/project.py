@@ -247,7 +247,7 @@ class Project:
 
         # generate subprojects
         for project in self.subprojects:
-            self._logger.info(f'Generating {project.name} ({project.source_path})')
+            self._logger.debug(f'Generating {project.name} ({project.source_path})')
             project.generate()
 
         def relative_source_path(path: Union[Path, str]):

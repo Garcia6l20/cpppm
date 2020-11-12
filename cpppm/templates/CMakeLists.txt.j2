@@ -32,9 +32,12 @@ conan_basic_setup(TARGETS)
 conan_include_build_modules()
 {%- endif %}
 
-message(STATUS "cpppm: generators: {{ project.generators }}")
+{%- if project.generators | length %}
+message(VERBOSE "cpppm: generators: {{ project.generators }}")
+{%- endif %}
+
 {%- for generator in project.generators %}
-message(STATUS "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
+message(VERBOSE "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
 add_custom_command(OUTPUT {{ generator.target | to_dependencies(project) }}
     COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ generator.sha1 }}
     DEPENDS {{ generator.project.script_path | to_project_link(project) }} {{ generator.depends | to_dependencies(project) }}

@@ -84,7 +84,7 @@ class Event:
             kwargs.update(self.kwargs)
             from . import _get_logger
             logger = _get_logger(self, self.function_name)
-            logger.info(f'firing {self.function_name} with {args}, {kwargs} ({self.sha1} at {self.cwd})')
+            logger.debug(f'firing {self.function_name} with {args}, {kwargs} ({self.sha1} at {self.cwd})')
             return func(*args, **kwargs)
 
         if '__cpppm_event__' in sys.argv and sys.argv[-1] == self.sha1:

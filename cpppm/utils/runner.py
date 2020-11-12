@@ -15,8 +15,8 @@ class Runner:
         @working_directory(self.cwd or Path.cwd())
         def do_run():
             tmp = [self.executable, *args]
-            self._logger.info(f'Working dir: {Path.cwd()}')
-            self._logger.info(f'Command: {" ".join(tmp)}')
+            self._logger.debug(f'Working dir: {Path.cwd()}')
+            self._logger.debug(f'Command: {" ".join(tmp)}')
             return sp.run(tmp).returncode
 
         return do_run()
