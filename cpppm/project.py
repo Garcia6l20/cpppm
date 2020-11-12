@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 from typing import List, Union, final, cast, Any, Dict
 
-from conans.client.conan_api import Conan, get_graph_info
-from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
 
@@ -191,32 +189,21 @@ class Project:
         self._conan_refs.extend([ConanFileReference.loads(req) for req in build_requirements])
         self.conan_packages = [ref.name for ref in self._conan_refs]
         recorder = ActionRecorder()
-        manifest_folder = None
-        manifest_verify = False
-        manifest_interactive = False
-        lockfile = None
-        profile_names = None
         Project.settings.append(f'build_type={Project.build_type}')
+
         options = [f'{key}={value}' for key, value in options.items()]
-        env = None
-        graph_info = get_graph_info(profile_names, Project.settings, options, env, self.build_path, None,
-                                    conan.app.cache, conan.app.out,
-                                    name=None, version=None, user=None, channel=None,
-                                    lockfile=lockfile)
-        remotes = conan.app.load_remotes(remote_name=None, update=True)
-        deps_install(app=conan.app,
-                     ref_or_path=self._conan_refs,
-                     install_folder=self.build_path,
-                     remotes=remotes,
-                     graph_info=graph_info,
-                     build_modes=None,
-                     update=True,
-                     manifest_folder=manifest_folder,
-                     manifest_verify=manifest_verify,
-                     manifest_interactive=manifest_interactive,
-                     generators=['cmake'],
-                     no_imports=False,
-                     recorder=recorder)
+
+        template = _jenv.get_template('conanfile.txt.j2')
+        with open(str(self.build_path / 'conanfile.txt'), 'w') as conanfile:
+            conanfile.write(template.render({
+                'requires': set(requirements),
+                'build_requires': set(build_requirements),
+                'options': options,
+            }))
+            conanfile.close()
+
+        conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path)
+
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
         self._uses_conan = True
 

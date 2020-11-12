@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from cpppm import Project, main
 
 project = Project('examples')
