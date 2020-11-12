@@ -111,11 +111,11 @@ class Project:
 
     @property
     def bin_path(self):
-        return self.build_path.joinpath('bin')
+        return Project._root_project.build_path.joinpath('bin')
 
     @property
     def lib_path(self):
-        return self.build_path.joinpath('lib')
+        return Project._root_project.build_path.joinpath('lib')
 
     @property
     def subprojects(self):
