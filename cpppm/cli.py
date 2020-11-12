@@ -110,5 +110,5 @@ def test(ctx):
 @click.pass_context
 def run(ctx, target, args):
     """Runs the given TARGET with given ARGS."""
-    ctx.invoke(build)
+    ctx.invoke(build, target=target)
     Project.root_project.run(target, *args)

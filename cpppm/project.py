@@ -330,7 +330,7 @@ class Project:
             return res
         args = ['--build', '.']
         if target:
-            args.extend(('--target', {target}))
+            args.extend(('--target', target))
         args.extend(('--config', Project.build_type))
         return runner.run(*args)
 
