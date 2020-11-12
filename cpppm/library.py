@@ -23,3 +23,6 @@ class Library(Target):
     @property
     def exe(self) -> str:
         raise RuntimeError(f'{self.name} is not an executable')
+
+    def __str__(self):
+        return f'Library[{self.name}]'

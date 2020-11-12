@@ -80,3 +80,6 @@ class Target:
     @abstractmethod
     def exe(self) -> str:
         raise NotImplementedError
+
+    def __str__(self):
+        return f'Target[{self.name}]'

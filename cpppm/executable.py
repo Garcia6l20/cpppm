@@ -26,3 +26,6 @@ class Executable(Target):
     def run(self, *args, working_directory=None):
         runner = Runner(self.executable_path, working_directory)
         return runner.run(*args)
+
+    def __str__(self):
+        return f'Executable[{self.name}]'

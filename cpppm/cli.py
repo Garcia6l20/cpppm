@@ -89,11 +89,25 @@ def test(ctx):
     raise NotImplementedError
 
 
+def list_targets(proj):
+    print(f'- {proj.name} project:')
+    for target in proj.targets:
+        print(f'  - {target.name:.<64}{target.__class__.__name__}')
+    for _, sub in proj.subprojects.items():
+        list_targets(sub)
+
+
+@cli.command('targets')
+def targets():
+    """Lists project targets."""
+    list_targets(Project._root_project)
+
+
 @cli.command()
 @click.argument("target")
 @click.argument("args", required=False, nargs=-1, default=None)
 @click.pass_context
 def run(ctx, target, args):
     """Runs the given TARGET with given ARGS."""
-    ctx.invoke(build)
+    ctx.invoke(build, target=target)
     Project._root_project.run(target, *args)
