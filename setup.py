@@ -7,7 +7,7 @@ package = "cpppm"
 
 setuptools.setup(
     name=package,
-    version="0.2.0",
+    version="0.2.1",
     license='MIT',
     author="Garcia Sylvain",
     author_email="garcia.6l20@gmail.com",
@@ -15,7 +15,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Garcia6l20/cpppm",
-    keywords=["c++", "project-manager"],
+    keywords=["c++", "project-manager", "cmake", "conan"],
     packages=setuptools.find_packages(),
     package_dir={package: package},
     package_data={package: ['templates/*.j2']},
@@ -29,7 +29,7 @@ setuptools.setup(
     ],
     python_requires='>=3.8',
     install_requires=[
-        'Click>=7.0',
-        'conan>=1.22.0'
+        'Click>=7.1.2',
+        'conan>=1.31.2'
     ],
 )
