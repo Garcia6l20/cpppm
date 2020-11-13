@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from . import _output_dir_option
+from . import _output_dir_option, _logger
 from .project import Project
 
 
@@ -34,6 +34,8 @@ def cli(ctx, verbose, out_directory, clean, setting, build_type):
         raise RuntimeError('Failed to create build directory: {build_directory}')
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
+        _logger.setLevel(logging.DEBUG)
+
     if ctx.invoked_subcommand is None:
         ctx.invoke(run)
 
