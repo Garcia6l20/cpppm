@@ -347,6 +347,9 @@ class Project:
         return Runner("cmake", self.build_path)
 
     def build(self, target: str = None, jobs: int = None) -> int:
+        t = self.target(target)
+        if isinstance(t, Library) and t.is_header_only:
+            return 0  # skip header-only build requests
         runner = self._cmake_runner()
         args = ['--build', '.']
         if target:

@@ -1,9 +1,7 @@
 import platform
 import re
 from pathlib import Path
-from typing import List, Pattern, Set
-
-from cpppm.utils.decorators import list_property
+from typing import List, Set
 
 from .target import Target
 
@@ -12,16 +10,19 @@ class Library(Target):
     static: bool = False
 
     def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
+        from . import Executable
         super().__init__(name, source_path, build_path, **kwargs)
         self.export_header = None
         self._header_pattern: Set[str] = {r'.*\.h(pp)?$'}
         self._public_pattern: Set[str] = {r'.*/include/.+'}
+        self._tests: Set[Executable] = set()
+        self._tests_backend: str = None
 
-    @list_property
+    @property
     def header_pattern(self) -> str:
         return '|'.join(pattern for pattern in self._header_pattern)
 
-    @list_property
+    @property
     def public_pattern(self) -> str:
         return '|'.join(pattern for pattern in self._public_pattern)
 
@@ -105,3 +106,52 @@ class Library(Target):
         if self.is_header_only:
             return 'INTERFACE'
         return 'PUBLIC'
+
+    @property
+    def tests(self) -> set:
+        return self._tests
+
+    def _add_test(self, test):
+        from . import Project, Executable
+        if isinstance(test, Executable):
+            exe = test
+        else:
+            assert isinstance(test, str)
+            exe = Project.current_project.executable(f'{self.name}-{Path(test).stem}')
+            exe.sources = test
+        exe.install = False
+        self._tests.add(exe)
+        exe.link_libraries = self
+        if self.tests_backend:
+            exe.link_libraries = self.tests_backend
+
+    @tests.setter
+    def tests(self, tests):
+        from . import Executable
+        if isinstance(tests, str) or isinstance(tests, Executable):
+            self._add_test(tests)
+        else:
+            for test in tests:
+                self._add_test(test)
+
+    @property
+    def tests_backend(self):
+        if not self._tests_backend:
+            return None
+        return self._tests_backend.split('/')[0]
+
+    @tests_backend.setter
+    def tests_backend(self, backend: str):
+        from . import Project
+        Project.current_project.build_requires = backend
+        self._tests_backend = backend
+        for test in self.tests:
+            test.link_libraries = self.tests_backend
+
+    def test(self):
+        from . import Project
+        for test in self.tests:
+            Project.current_project.build(test.name)
+
+        for test in self.tests:
+            test.run()

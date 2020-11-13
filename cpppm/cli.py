@@ -7,6 +7,7 @@ import click
 
 from . import _output_dir_option, _logger
 from .project import Project
+from .library import Library
 
 
 @click.group(invoke_without_command=True)
@@ -105,11 +106,17 @@ def package():
 
 
 @cli.command()
+@click.argument("target", required=False)
 @click.pass_context
-def test(ctx):
+def test(ctx, target):
     """Runs the unit tests."""
-    ctx.invoke(build)
-    raise NotImplementedError
+    ctx.invoke(build, target=target)
+    if target:
+        target = Project.root_project.target(target)
+        assert isinstance(target, Library)
+        target.test()
+    else:
+        raise NotImplementedError
 
 
 @cli.command()
