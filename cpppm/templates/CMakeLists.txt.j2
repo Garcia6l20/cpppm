@@ -15,9 +15,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR}/bin)
-{% endif %}
 
 include(GenerateExportHeader)
+{% endif %}
 
 project({{project.name}})
 
@@ -60,3 +60,21 @@ add_subdirectory({{subproject.build_relative }})
 {%- for target in project.targets %}
 {% include "CMakeLists.target.j2" %}
 {% endfor -%}
+
+
+{% if project.is_root -%}
+add_custom_command(OUTPUT cpppm-timestamp
+    COMMENT "cpppm project changed, regenerating..."
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} generate
+    COMMAND ${CMAKE_COMMAND} -E touch cpppm-timestamp
+    DEPENDS{% for subproject in project.subprojects %}
+        {{ subproject.script_path | to_root_project_link() }}
+        {%- endfor %}
+        {{ project.script_path | to_project_link(project) }}
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+
+add_custom_target(cpppm-update
+    DEPENDS cpppm-timestamp)
+{%- endif %}
+

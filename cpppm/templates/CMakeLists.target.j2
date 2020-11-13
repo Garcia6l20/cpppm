@@ -18,6 +18,9 @@ add_dependencies({{target.name}}
     {{ project.script_path | to_project_link(project) }}
     )
 {%- endif %}
+
+add_dependencies({{target.name}} cpppm-update)
+
 {% if target.include_dirs | length %}
 target_include_directories({{target.name}} {{ target.public_visibility }}
 {%- for include_dir in target.include_dirs %}
@@ -67,7 +70,7 @@ add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
 {% endif %}
 {% endfor %}
 {% endif -%}
-# add_dependencies({{ target.name }} cpppm-update)
+
 {%- if target.dependencies | length %}
 target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies(project) }})
 {% endif %}
