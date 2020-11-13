@@ -333,6 +333,8 @@ class Project:
                 open(str(self.build_path / 'CMakeLists.txt'), 'w').write(lists)
             else:
                 self._logger.debug(f'{self.name} CMakeLists.txt is up-to-date')
+        else:
+            open(str(self.build_path / 'CMakeLists.txt'), 'w').write(lists)
 
         if Project.root_project == self:
             if Project._export_compile_commands:
