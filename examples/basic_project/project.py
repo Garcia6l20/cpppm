@@ -2,7 +2,7 @@
 from cpppm import Project, main
 
 project = Project('basic-project')
-basic = project.library('basic')
+basic = project.library('basic', install=False)
 basic.sources = {
     'include/basic.hpp',
     'src/basic.cpp',

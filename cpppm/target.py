@@ -7,7 +7,10 @@ from .utils.pathlist import PathList
 
 
 class Target:
-    def __init__(self, name: str, source_path: Path, build_path: Path):
+
+    install = True
+
+    def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
         from .events import Event
         from .project import Project
         self._bin_path = Project.current_project.bin_path
@@ -24,6 +27,9 @@ class Target:
         self._compile_options = []
         self._compile_definitions = []
         self.events: List[Event] = []
+
+        if 'install' in kwargs:
+            self.install = bool(kwargs['install'])
 
     @property
     def source_path(self) -> Path:

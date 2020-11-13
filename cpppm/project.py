@@ -137,31 +137,31 @@ class Project:
             build_root = self.build_path / root.relative_to(self.source_path)
         return root.absolute(), build_root.absolute()
 
-    def main_executable(self, root: str = None) -> Executable:
+    def main_executable(self, root: str = None, **kwargs) -> Executable:
         """Add the default project executable (same name as project)
         """
         if self.main_target is not None:
             raise RuntimeError("You cannot use both Project.main_library and Project.main_executable")
-        self.main_target = self.executable(self.name, root)
+        self.main_target = self.executable(self.name, root, **kwargs)
         return cast(Executable, self.main_target)
 
-    def executable(self, name, root: str = None) -> Executable:
+    def executable(self, name, root: str = None, **kwargs) -> Executable:
         """Add an executable to the project"""
-        executable = Executable(name, *self._target_paths(root))
+        executable = Executable(name, *self._target_paths(root), **kwargs)
         self._executables.append(executable)
         Project.__all_targets.append(executable)
         return executable
 
-    def main_library(self, root: str = None) -> Library:
+    def main_library(self, root: str = None, **kwargs) -> Library:
         """Add the default project library (same name as project)"""
         if self.main_target is not None:
             raise RuntimeError("You cannot use both Project.main_library and Project.main_executable")
-        self.main_target = self.library(self.name, root)
+        self.main_target = self.library(self.name, root, **kwargs)
         return cast(Library, self.main_target)
 
-    def library(self, name, root: str = None) -> Library:
+    def library(self, name, root: str = None, **kwargs) -> Library:
         """Add a library to the project"""
-        library = Library(name, *self._target_paths(root))
+        library = Library(name, *self._target_paths(root), **kwargs)
         self._libraries.append(library)
         Project.__all_targets.append(library)
         return library
@@ -336,12 +336,15 @@ class Project:
                     source_compile_commands.unlink()
                 source_compile_commands.symlink_to(build_compile_commands)
 
-    def configure(self) -> int:
+    def configure(self, *args) -> int:
         runner = Runner("cmake", self.build_path)
-        return runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', '.')
+        return runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', *args, '.')
+
+    def _cmake_runner(self):
+        return Runner("cmake", self.build_path)
 
     def build(self, target: str = None, jobs: int = None) -> int:
-        runner = Runner("cmake", self.build_path)
+        runner = self._cmake_runner()
         args = ['--build', '.']
         if target:
             args.extend(('--target', target))
@@ -404,55 +407,57 @@ class Project:
         setattr(self, func.__name__, func)
 
     def install(self, destination: Union[str, Path]):
-        if not isinstance(destination, Path):
-            destination = Path(destination)
-
-        logger = self._logger
-
-        def _copy(self: Path, target: Path):
-            logger.info(f'Copying {self} -> {target}')
-
-            target.mkdir(parents=True, exist_ok=True)
-            shutil.copy(str(self.absolute().as_posix()), str(target.absolute().as_posix()))
-
-        Path.copy = _copy
-
-        conv = self.dist_converter
-        conv.anchor = destination
-        conv.root = Path(os.path.commonpath([self.build_path, self.source_path]))
-
-        def do_install(item):
-            if isinstance(item, tuple):
-                item[0].copy(item[1])
-            else:
-                for src, dst in item:
-                    src.copy(dst)
-
-        # copy executables
-        for exe in self._executables:
-            do_install(conv(exe.bin_path))
-
-        # copy libraries/headers
-        for lib in self._libraries:
-            if lib.binary:
-                do_install(conv(lib.bin_path))
-            if lib.library:
-                do_install(conv(lib.lib_path))
-
-        try:
-            for lib in self._libraries:
-                do_install(conv(lib.public_headers))
-            do_install(conv(self.build_modules))
-        except UnmappedToLayoutError as err:
-            raise UnmappedToLayoutError(err.item,
-                                        f'You are trying to install {err.item} '
-                                        'but is not defined in the project layout, '
-                                        'you have to extend the default layout with your own paths '
-                                        f'(during installation of {self.name})')
-
-        # subprojects
-        for project in self.subprojects:
-            project.install(destination)
+        # if isinstance(destination, Path):
+        #     destination = str(destination)
+        runner = Runner("cmake")
+        return runner.run('--install', str(self.build_path), '--prefix', str(destination))
+        #
+        # logger = self._logger
+        #
+        # def _copy(self: Path, target: Path):
+        #     logger.info(f'Copying {self} -> {target}')
+        #
+        #     target.mkdir(parents=True, exist_ok=True)
+        #     shutil.copy(str(self.absolute().as_posix()), str(target.absolute().as_posix()))
+        #
+        # Path.copy = _copy
+        #
+        # conv = self.dist_converter
+        # conv.anchor = destination
+        # conv.root = Path(os.path.commonpath([self.build_path, self.source_path]))
+        #
+        # def do_install(item):
+        #     if isinstance(item, tuple):
+        #         item[0].copy(item[1])
+        #     else:
+        #         for src, dst in item:
+        #             src.copy(dst)
+        #
+        # # copy executables
+        # for exe in self._executables:
+        #     do_install(conv(exe.bin_path))
+        #
+        # # copy libraries/headers
+        # for lib in self._libraries:
+        #     if lib.binary:
+        #         do_install(conv(lib.bin_path))
+        #     if lib.library:
+        #         do_install(conv(lib.lib_path))
+        #
+        # try:
+        #     for lib in self._libraries:
+        #         do_install(conv(lib.public_headers))
+        #     do_install(conv(self.build_modules))
+        # except UnmappedToLayoutError as err:
+        #     raise UnmappedToLayoutError(err.item,
+        #                                 f'You are trying to install {err.item} '
+        #                                 'but is not defined in the project layout, '
+        #                                 'you have to extend the default layout with your own paths '
+        #                                 f'(during installation of {self.name})')
+        #
+        # # subprojects
+        # for project in self.subprojects:
+        #     project.install(destination)
 
     def package(self):
         conanfile_path = self.source_path / 'conanfile.py'

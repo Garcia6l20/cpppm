@@ -63,4 +63,19 @@ add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
 # add_dependencies({{ target.name }} cpppm-update)
 {%- if target.dependencies | length %}
 target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies(project) }})
-{% endif -%}
+{% endif %}
+
+{% if target.install -%}
+install(TARGETS {{ target.name }}
+    PUBLIC_HEADER
+        DESTINATION include
+        COMPONENT Development
+    LIBRARY
+        DESTINATION lib
+        COMPONENT Development
+    ARCHIVE
+        DESTINATION lib
+        COMPONENT Development
+    RUNTIME DESTINATION bin
+    )
+{%- endif %}
