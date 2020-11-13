@@ -236,6 +236,7 @@ class Project:
 
         conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
                       settings=[f'{k}={v}' for k, v in Project.settings.items()])
+        conan.out.flush()
 
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
 

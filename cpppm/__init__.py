@@ -1,9 +1,16 @@
 import logging
 from pathlib import Path
 
+from colorama import Fore
+
 from conans.client.conan_api import Conan
 from conans.client.conf.detect import detect_defaults_settings
 from jinja2 import Environment, PackageLoader
+
+from conans.util.conan_v2_mode import CONAN_V2_MODE_ENVVAR
+
+import sys
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,7 +22,42 @@ _output_dir_option = "--out-directory", "-o"
 
 __build_path = None
 
-__conan = Conan()
+os.environ[CONAN_V2_MODE_ENVVAR] = "1"
+
+
+class __ConanOutput:
+    __conan_logger = _logger.getChild('conan')
+
+    def __init__(self, stream, stream_err=None, color=False):
+        self._stream = stream
+        self._stream_err = stream_err
+        self._color = color
+        self._lines = []
+
+    def success(self, msg: str):
+        self.__conan_logger.info(msg)
+
+    def info(self, msg: str):
+        self.__conan_logger.info(msg)
+
+    def warn(self, msg):
+        self.__conan_logger.warning(msg)
+
+    def error(self, msg):
+        self.__conan_logger.error(msg)
+
+    def writeln(self, msg, front=None, back=None, error=False):
+        self._lines.append(f'{front or ""} {msg} {back or ""}')
+
+    def flush(self):
+        self.__conan_logger.info('\n'.join(self._lines))
+        self._lines = []
+        self._stream.write(Fore.RESET)
+
+
+__conan_output = __ConanOutput(sys.stdout, sys.stderr)
+
+__conan = Conan(output=__conan_output)
 
 
 def get_conan():
