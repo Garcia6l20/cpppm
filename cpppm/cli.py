@@ -15,7 +15,8 @@ from .project import Project
               help="Build directory, generated files should go there.")
 @click.option("--clean", "-c", is_flag=True,
               help="Remove all stuff before processing the following command.")
-@click.option("--setting", "-s", help="Conan setting.", multiple=True)
+@click.option("--setting", "-s", multiple=True,
+              help="Adds the given setting (eg.: '-s compiler=gcc -s compiler.version=9'), see: .")
 @click.option("--build-type", "-b", default="Release",
               type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
 @click.pass_context
@@ -37,7 +38,7 @@ def cli(ctx, verbose, out_directory, clean, setting, build_type):
         ctx.invoke(run)
 
 
-@cli.command('__cpppm_event__')
+@cli.command('__cpppm_event__', hidden=True)
 def __cpppm_event__():
     pass
 
@@ -49,9 +50,12 @@ def install_requirements():
 
 
 @cli.command()
+@click.option('--export-compile-commands', is_flag=True, default=False,
+              help='export commands from CMake (can be used by clangd)')
 @click.pass_context
-def generate(ctx):
+def generate(ctx, export_compile_commands):
     """Generates conan/CMake stuff."""
+    Project._export_compile_commands = export_compile_commands
     ctx.invoke(install_requirements)
     Project.root_project.generate()
 

@@ -1,6 +1,7 @@
 import importlib.util
 import inspect
 import os
+import platform
 import re
 import shutil
 import sys
@@ -32,6 +33,9 @@ class Project:
 
     layout: Type[Layout] = DefaultProjectLayout
     dist_layout: Type[Layout] = DefaultDistLayout
+
+    # export commands from CMake (can be used by clangd)
+    _export_compile_commands: False
 
     def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
         self.name = name
@@ -322,6 +326,15 @@ class Project:
         })
         # self._logger.debug(lists)
         lists_file.write(lists)
+
+        if Project.root_project == self:
+            if Project._export_compile_commands:
+                self._logger.info('Exporting compilitation commands')
+                source_compile_commands = self.source_path / 'compile_commands.json'
+                build_compile_commands = self.build_path / 'compile_commands.json'
+                if source_compile_commands.exists():
+                    source_compile_commands.unlink()
+                source_compile_commands.symlink_to(build_compile_commands)
 
     def configure(self) -> int:
         runner = Runner("cmake", self.build_path)
