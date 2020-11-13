@@ -1,20 +1,17 @@
+import hashlib
 import importlib.util
 import inspect
 import os
-import platform
 import re
-import shutil
 import sys
 from pathlib import Path
 from typing import List, Union, cast, Any, Dict, Optional, Type
 
-from conans.client.conan_api import get_graph_info
-from conans.client.manager import deps_install
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
-from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter, UnmappedToLayoutError
+from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter
 
-from . import _jenv, _get_logger, _get_build_path, get_conan
+from . import _jenv, _get_logger, _get_build_path, get_conan, get_settings
 from .executable import Executable
 from .library import Library
 from .target import Target
@@ -28,7 +25,7 @@ class Project:
     projects: List['Project'] = []
     main_target: Target = None
     build_path: Path = None
-    build_type = 'Debug'
+    settings = None
     __all_targets: List[Target] = []
 
     layout: Type[Layout] = DefaultProjectLayout
@@ -59,6 +56,7 @@ class Project:
         if not Project.root_project:
             self.build_path = _get_build_path(self.source_path)
             Project._root_project = self
+            Project.settings = get_settings()
             self.build_relative = '.'
         else:
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
@@ -77,7 +75,6 @@ class Project:
         self.test_folder = None
         self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
-        self._settings: Dict[str, Any] = {"os": None, "compiler": None, "build_type": None, "arch": None}
         self._build_modules: List[str] = []
         self._requires_options: Dict[str, Any] = dict()
 
@@ -229,7 +226,6 @@ class Project:
             return
         conan = get_conan()
         recorder = ActionRecorder()
-        self.settings['build_type'] = Project.build_type
 
         open(str(self.build_path / 'conanfile.txt'), 'w').write(
             _jenv.get_template('conanfile.txt.j2').render({
@@ -238,7 +234,8 @@ class Project:
                 'options': self.requires_options,
             }))
 
-        conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path)
+        conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
+                      settings=[f'{k}={v}' for k, v in Project.settings.items()])
 
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
 
@@ -314,7 +311,6 @@ class Project:
             "to_dependencies": to_dependencies,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')
-        lists_file = open(str(self.build_path / 'CMakeLists.txt'), 'w')
         lists = jlists.render({
             'project': self,
             'cache': {
@@ -324,8 +320,13 @@ class Project:
             'python': Path(sys.executable).as_posix(),
             'pythonpath': self.script_path.parent.parent.absolute().as_posix(),
         })
-        # self._logger.debug(lists)
-        lists_file.write(lists)
+        if Path.exists(self.build_path / 'CMakeLists.txt'):
+            old_sha1 = hashlib.sha1(open(str(self.build_path / 'CMakeLists.txt'), 'r').read().encode()).hexdigest()
+            sha1 = hashlib.sha1(lists.encode()).hexdigest()
+            if sha1 != old_sha1:
+                open(str(self.build_path / 'CMakeLists.txt'), 'w').write(lists)
+            else:
+                self._logger.debug(f'{self.name} CMakeLists.txt is up-to-date')
 
         if Project.root_project == self:
             if Project._export_compile_commands:
@@ -338,7 +339,9 @@ class Project:
 
     def configure(self, *args) -> int:
         runner = Runner("cmake", self.build_path)
-        return runner.run(f'-DCMAKE_BUILD_TYPE={Project.build_type}', *args, '.')
+        return runner.run(
+            f'-DCMAKE_BUILD_TYPE={Project.settings["build_type"]}',
+            *args, '.')
 
     def _cmake_runner(self):
         return Runner("cmake", self.build_path)
