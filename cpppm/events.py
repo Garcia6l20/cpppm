@@ -1,6 +1,7 @@
 import enum
 import hashlib
 import inspect
+import sys
 from functools import wraps
 from pathlib import Path
 from typing import List, Union
@@ -8,6 +9,7 @@ from typing import List, Union
 from cpppm import _jenv
 from cpppm.project import Project
 from cpppm.target import Target
+from cpppm.utils import working_directory
 from cpppm.utils.pathlist import PathList
 
 
@@ -22,7 +24,7 @@ class EventKind(enum.IntEnum):
 class Event:
     def __init__(self, event_type: EventKind, target: Union[Target, PathList],
                  *args, depends=None, cwd=None, **kwargs):
-        self.cwd = cwd or Project.current_project.build_path
+        self.cwd = cwd
         if depends is None:
             depends = []
         self.event_type: EventKind = event_type
@@ -60,6 +62,9 @@ class Event:
     def function_name(self):
         return self.func.__name__
 
+    def __str__(self):
+        return f'{self.project.name}.{self.function_name}'
+
     @property
     def type_str(self):
         return self.event_type.name
@@ -67,45 +72,29 @@ class Event:
     def __call__(self, func, *args, **kwargs):
         self.func = func
         self.source_path = Path(inspect.getfile(func))
+        if self.cwd is None:
+            self.cwd = self.source_path.parent
         self.project = Project.current_project
         self.event_path = Project.current_project.build_path.joinpath(f'{self.function_name}.py')
 
         @wraps(func)
+        @working_directory(self.cwd)
         def wrapper(*args, **kwargs):
             args = [*self.args, *args]
             kwargs.update(self.kwargs)
             from . import _get_logger
             logger = _get_logger(self, self.function_name)
-            logger.debug(f'firing {self.function_name} with {args}, {kwargs}')
+            logger.debug(f'firing {self.function_name} with {args}, {kwargs} ({self.sha1} at {self.cwd})')
             return func(*args, **kwargs)
+
+        if '__cpppm_event__' in sys.argv and sys.argv[-1] == self.sha1:
+            sys.exit(wrapper())
 
         Project.current_project.build_path.mkdir(exist_ok=True)
         if self.event_type == EventKind.GENERATOR:
-            template_name = 'generator.py.j2'
             Project.current_project.generators.append(self)
         else:
-            template_name = 'event.py.j2'
             self.target.events.append(self)
-
-        sha1 = self.sha1
-        sha1_path = self.event_path.absolute().with_suffix('.sha1')
-        if not self.event_path.exists() or (sha1_path.exists() and sha1_path.open('r').read() != sha1):
-            files = None
-            if self.event_type == EventKind.GENERATOR:
-                files = [Path(f) for f in self.target]
-                self.target = files
-            self.event_path.open('w').write(_jenv.get_template(template_name).render({
-                'event': self,
-                'sha1_path': sha1_path.absolute(),
-                'sha1': sha1,
-                'files': [str(f) for f in files] if files else '',
-                'build_path': Project.current_project.build_path,
-                'cwd': self.cwd,
-                'root': Project.root_project
-            }))
-            print(f'{self.name} ----> {self.sha1}')
-            if sha1_path.exists():
-                sha1_path.unlink()
 
         setattr(wrapper, 'event', self)
         Project.current_project.set_event(wrapper)
@@ -138,3 +127,6 @@ class generator(Event):
         if cwd is None:
             cwd = Project.build_path
         super().__init__(EventKind.GENERATOR, PathList(cwd, filepaths), *args, depends=depends, cwd=cwd, **kwargs)
+
+    def __str__(self):
+        return super().__str__()

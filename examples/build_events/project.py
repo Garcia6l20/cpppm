@@ -2,10 +2,11 @@
 from cpppm import Project, Executable, main, events
 
 project = Project('events')
-project.requires = 'fmt/6.1.2'
+project.requires = 'fmt/7.1.2'
 project.requires_options = {'fmt:header_only': True}
 
 gen = project.executable('gen_date')
+gen.install = False
 gen.sources = 'src/generator.cpp'
 gen.link_libraries = 'fmt'
 

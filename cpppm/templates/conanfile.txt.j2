@@ -11,8 +11,8 @@
 {%- endif %}
 
 [options]
-{% for opt in options -%}
-{{ opt }}
+{% for k, v in options.items() -%}
+{{ k }}={{ v }}
 {% endfor %}
 
 [generators]

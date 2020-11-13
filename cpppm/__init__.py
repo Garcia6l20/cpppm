@@ -1,11 +1,9 @@
 import logging
 from pathlib import Path
 
-from jinja2 import Environment, PackageLoader
-
-from conans.client.conf.detect import detect_defaults_settings
-
 from conans.client.conan_api import Conan
+from conans.client.conf.detect import detect_defaults_settings
+from jinja2 import Environment, PackageLoader
 
 logging.basicConfig(level=logging.INFO)
 
@@ -37,7 +35,7 @@ def get_settings():
     return __settings
 
 
-def _get_build_path():
+def _get_build_path(source_path):
     global __build_path
     if __build_path is None:
         for opt in _output_dir_option:
@@ -50,7 +48,7 @@ def _get_build_path():
             compiler = settings['compiler']
             compiler += '-' + settings['compiler.version']
             arch = settings['arch']
-            __build_path = (Path.cwd() / f'build-{compiler}-{arch}').absolute()
+            __build_path = (source_path / 'build' / f'{compiler}-{arch}').absolute()
     return __build_path
 
 

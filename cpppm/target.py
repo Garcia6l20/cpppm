@@ -7,13 +7,15 @@ from .utils.pathlist import PathList
 
 
 class Target:
-    def __init__(self, name: str, source_path: Path, build_path: Path):
+
+    install = True
+
+    def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
         from .events import Event
         from .project import Project
-        super().__init__()
         self._bin_path = Project.current_project.bin_path
+        self._lib_path = Project.current_project.lib_path
         self.name = name
-        self.export_header = None
         self._source_path = source_path
         self._build_path = build_path
 
@@ -26,6 +28,9 @@ class Target:
         self._compile_definitions = []
         self.events: List[Event] = []
 
+        if 'install' in kwargs:
+            self.install = bool(kwargs['install'])
+
     @property
     def source_path(self) -> Path:
         return self._source_path
@@ -36,7 +41,7 @@ class Target:
 
     @property
     def bin_path(self) -> Path:
-        return self._bin_path
+        return self._bin_path / self.binary
 
     @list_property
     def sources(self) -> PathList:
@@ -78,8 +83,12 @@ class Target:
 
     @property
     @abstractmethod
-    def exe(self) -> str:
+    def binary(self) -> str:
         raise NotImplementedError
+
+    @property
+    def public_visibility(self) -> str:
+        return 'PUBLIC'
 
     def __str__(self):
         return f'Target[{self.name}]'

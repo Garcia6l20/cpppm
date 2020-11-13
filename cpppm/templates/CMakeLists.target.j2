@@ -6,34 +6,45 @@ add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_p
 # {{ cache }}
 {% endif -%}
 {{target.command}}({{target.name}} {{target.type}}
+{%- if not target.is_header_only %}
 {%- for source in target.sources %}
-    {{ source | absolute_path }}
+    {{ source | to_project_link(project) }}
 {%- endfor %}
+    {{ project.script_path | to_project_link(project) }}
+{%- endif %}
 )
+{%- if target.is_header_only %}
+add_dependencies({{target.name}}
+    {{ project.script_path | to_project_link(project) }}
+    )
+{%- endif %}
+
+add_dependencies({{target.name}} cpppm-update)
+
 {% if target.include_dirs | length %}
-target_include_directories({{target.name}} PUBLIC
+target_include_directories({{target.name}} {{ target.public_visibility }}
 {%- for include_dir in target.include_dirs %}
     {{ include_dir | absolute_path }}
 {%- endfor %}
-    {{ target.build_path | absolute_path }} # build dir
+    {{ target.build_path | absolute_path }}/include
 )
 {% endif -%}
 {%- if target.compile_options | length %}
-target_compile_options({{target.name}} PUBLIC
+target_compile_options({{target.name}} {{ target.public_visibility }}
 {%- for compile_option in target.compile_options %}
     {{ compile_option }}
 {%- endfor %}
 )
 {% endif -%}
 {%- if target.compile_definitions | length %}
-target_compile_definitions({{target.name}} PUBLIC
+target_compile_definitions({{target.name}} {{ target.public_visibility }}
 {%- for compile_definitions in target.compile_definitions %}
     {{ compile_definitions }}
 {%- endfor %}
 )
 {% endif -%}
 {%- if target.link_libraries | length %}
-target_link_libraries({{target.name}} PUBLIC
+target_link_libraries({{target.name}} {{ target.public_visibility }}
 {%- for link_library in target.link_libraries %}
     {{ link_library | to_library }}
 {%- endfor %}
@@ -47,18 +58,34 @@ generate_export_header({{ target.name }} EXPORT_FILE_NAME {{ target.export_heade
 message(VERBOSE "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
 # {{ event.event_type }}
 {%- if event.event_type == 0 %}
-execute_process(COMMAND {{ python }} {{ event.event_path | absolute_path }}
+execute_process(
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 {% elif event.event_type != 3 %}
 add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
-    COMMAND {{ python }} {{ event.event_path | absolute_path }}
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
     COMMENT "-- cpppm: firing {{target.name}} ({{ event.event_type }})"
 )
 {% endif %}
 {% endfor %}
 {% endif -%}
-# add_dependencies({{ target.name }} cpppm-update)
+
 {%- if target.dependencies | length %}
-target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies }})
-{% endif -%}
+target_sources({{ target.name }} PUBLIC {{ target.dependencies | to_dependencies(project) }})
+{% endif %}
+
+{% if target.install -%}
+install(TARGETS {{ target.name }}
+    PUBLIC_HEADER
+        DESTINATION include
+        COMPONENT Development
+    LIBRARY
+        DESTINATION lib
+        COMPONENT Development
+    ARCHIVE
+        DESTINATION lib
+        COMPONENT Development
+    RUNTIME DESTINATION bin
+    )
+{%- endif %}
