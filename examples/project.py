@@ -11,6 +11,7 @@ project.license = 'MIT'
 project.subproject('hello_cpppm')
 project.subproject('conan_requires')
 project.subproject('basic_project')
+project.subproject('header_only')
 
 build_events = project.subproject('build_events')
 

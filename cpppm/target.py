@@ -85,3 +85,7 @@ class Target:
     @abstractmethod
     def binary(self) -> str:
         raise NotImplementedError
+
+    @property
+    def public_visibility(self) -> str:
+        return 'PUBLIC'

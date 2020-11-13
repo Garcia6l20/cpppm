@@ -18,12 +18,12 @@ class Library(Target):
         self._public_pattern: Set[str] = {r'.*/include/.+'}
 
     @list_property
-    def header_pattern(self) -> Set[str]:
-        return self._header_pattern
+    def header_pattern(self) -> str:
+        return '|'.join(pattern for pattern in self._header_pattern)
 
     @list_property
-    def public_pattern(self) -> Set[str]:
-        return self._public_pattern
+    def public_pattern(self) -> str:
+        return '|'.join(pattern for pattern in self._public_pattern)
 
     @property
     def shared(self) -> bool:
@@ -35,6 +35,8 @@ class Library(Target):
 
     @property
     def type(self) -> str:
+        if self.is_header_only:
+            return 'INTERFACE'
         return 'STATIC' if self.static else 'SHARED'
 
     @property
@@ -72,7 +74,7 @@ class Library(Target):
 
     @property
     def headers(self) -> List[Path]:
-        pattern = '|'.join(pattern for pattern in self.header_pattern)
+        pattern = self.header_pattern
         out: List[Path] = []
         for source in self.sources:
             if re.match(pattern, str(source)):
@@ -80,12 +82,26 @@ class Library(Target):
         return out
 
     @property
+    def is_header_only(self) -> bool:
+        pattern = self.header_pattern
+        for source in self.sources:
+            if not re.match(pattern, str(source)):
+                return False
+        return True
+
+    @property
     def public_headers(self) -> List[Path]:
         out: List[Path] = []
-        pattern = '|'.join(pattern for pattern in self.public_pattern)
+        pattern = self.public_pattern
         for header in self.headers:
             if re.match(pattern, str(header)):
                 out.append(header)
         if self.export_header:
             out.append(self.build_path / Path(self.export_header))
         return out
+
+    @property
+    def public_visibility(self) -> str:
+        if self.is_header_only:
+            return 'INTERFACE'
+        return 'PUBLIC'
