@@ -8,14 +8,14 @@ add_subdirectory({{ subdir | absolute_path }} {{ project.build_path | absolute_p
 {{target.command}}({{target.name}} {{target.type}}
 {%- if not target.is_header_only %}
 {%- for source in target.sources %}
-    {{ source | to_project_link(project) }}
+    {{ source | absolute_path }}
 {%- endfor %}
-    {{ project.script_path | to_project_link(project) }}
+    {{ project.script_path | absolute_path }}
 {%- endif %}
 )
 {%- if target.is_header_only %}
 add_dependencies({{target.name}}
-    {{ project.script_path | to_project_link(project) }}
+    {{ project.script_path | absolute_path }}
     )
 {%- endif %}
 

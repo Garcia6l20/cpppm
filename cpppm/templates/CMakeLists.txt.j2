@@ -42,7 +42,7 @@ message(VERBOSE "cpppm: generators: {{ project.generators }}")
 message(VERBOSE "cpppm: setting up {{ generator.name }} ({{ generator.event_type }})")
 add_custom_command(OUTPUT {{ generator.target | to_dependencies(project) }}
     COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ generator.sha1 }}
-    DEPENDS {{ generator.project.script_path | to_project_link(project) }} {{ generator.depends | to_dependencies(project) }}
+    DEPENDS {{ generator.project.script_path | absolute_path }} {{ generator.depends | to_dependencies(project) }}
     COMMENT "-- cpppm: firing {{ generator.name }} ({{ generator.event_type }})"
 )
 {% for output in generator.target %}
@@ -68,9 +68,9 @@ add_custom_command(OUTPUT cpppm-timestamp
     COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -p {{ root_project._profile }} -o ${CMAKE_BINARY_DIR} generate
     COMMAND ${CMAKE_COMMAND} -E touch cpppm-timestamp
     DEPENDS{% for subproject in project.subprojects %}
-        {{ subproject.script_path | to_root_project_link() }}
+        {{ subproject.script_path | absolute_path }}
         {%- endfor %}
-        {{ project.script_path | to_project_link(project) }}
+        {{ project.script_path | absolute_path }}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
     )
 
