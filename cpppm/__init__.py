@@ -34,6 +34,9 @@ class __ConanOutput:
         self._color = color
         self._lines = []
 
+    def highlight(self, msg: str):
+        self.__conan_logger.info(msg)
+
     def success(self, msg: str):
         self.__conan_logger.info(msg)
 
