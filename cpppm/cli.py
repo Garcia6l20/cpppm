@@ -14,14 +14,18 @@ from .library import Library
 @click.option('--verbose', '-v', is_flag=True, help='Let me talk about me.')
 @click.option(*_output_dir_option, default=None,
               help="Build directory, generated files should go there.")
+@click.option("--debug", "-d", is_flag=True,
+              help="Print extra useful infos, and sets CMAKE_VERBOSE_MAKEFILE.")
 @click.option("--clean", "-c", is_flag=True,
               help="Remove all stuff before processing the following command.")
+@click.option("--profile", "-p",
+              help="Conan profile to use.")
 @click.option("--setting", "-s", multiple=True,
               help="Adds the given setting (eg.: '-s compiler=gcc -s compiler.version=9'), see: .")
 @click.option("--build-type", "-b", default="Release",
               type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
 @click.pass_context
-def cli(ctx, verbose, out_directory, clean, setting, build_type):
+def cli(ctx, verbose, out_directory, debug, clean, profile, setting, build_type):
     if not Project.current_project.is_root:
         return
     if clean:
@@ -31,11 +35,16 @@ def cli(ctx, verbose, out_directory, clean, setting, build_type):
     Project.root_project.settings = {setting.split('=') for setting in setting}
     Project.build_type = build_type
     Project.current_project.build_path.mkdir(exist_ok=True)
+    Project.set_profile(profile)
     if not Project.current_project.build_path.exists():
         raise RuntimeError('Failed to create build directory: {build_directory}')
     if verbose:
+        logging.basicConfig(level=logging.INFO)
+        _logger.setLevel(logging.INFO)
+    if debug:
         logging.basicConfig(level=logging.DEBUG)
         _logger.setLevel(logging.DEBUG)
+        Project.verbose_makefile = True
 
     if ctx.invoked_subcommand is None:
         ctx.invoke(run)
@@ -58,7 +67,7 @@ def install_requirements():
 @click.pass_context
 def generate(ctx, export_compile_commands):
     """Generates conan/CMake stuff."""
-    Project._export_compile_commands = export_compile_commands
+    Project.export_compile_commands = export_compile_commands
     ctx.invoke(install_requirements)
     Project.root_project.generate()
     if export_compile_commands:

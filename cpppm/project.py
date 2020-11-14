@@ -26,12 +26,14 @@ class Project:
     main_target: Target = None
     build_path: Path = None
     __all_targets: List[Target] = []
+    _profile = 'default'
 
     layout: Type[Layout] = DefaultProjectLayout
     dist_layout: Type[Layout] = DefaultDistLayout
 
     # export commands from CMake (can be used by clangd)
-    _export_compile_commands: False
+    export_compile_commands = False
+    verbose_makefile = False
 
     def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
         self.name = name
@@ -88,6 +90,17 @@ class Project:
 
         Project.projects.append(self)
         Project.current_project = self
+
+    @classproperty
+    def profile(cls):
+        return cls._profile
+
+    @classmethod
+    def set_profile(cls, profile):
+        cls._profile = profile or 'default'
+        conan = get_conan()
+        pr = conan.read_profile(cls._profile)
+        cls.project_settings = dict(pr.settings)
 
     @classproperty
     def root_project(cls) -> 'Project':
@@ -235,9 +248,14 @@ class Project:
                 'options': self.requires_options,
             }))
 
+        settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
+
+        # profile_host = ProfileData(profiles=profile_names, settings=settings, options=self.options,
+        #                            env=None)
+
         conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
-                      settings=[f'{k}={v}' for k, v in Project.project_settings.items()])
-        conan.out.flush()
+                      settings=settings, build=["outdated"], update=True)
+        # conan.out.flush()
 
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
 
@@ -340,7 +358,7 @@ class Project:
 
         if Project.root_project == self:
             # when called from conan, _export_compile_commands attribute does not exist !?!
-            if hasattr(self, '_export_compile_commands') and self._export_compile_commands:
+            if self.export_compile_commands:
                 self._logger.info('Exporting compilitation commands')
                 source_compile_commands = self.source_path / 'compile_commands.json'
                 build_compile_commands = self.build_path / 'compile_commands.json'
@@ -352,6 +370,8 @@ class Project:
         runner = Runner("cmake", self.build_path)
         return runner.run(
             f'-DCMAKE_BUILD_TYPE={Project.project_settings["build_type"]}',
+            f'-DCMAKE_EXPORT_COMPILE_COMMANDS={"ON" if Project.export_compile_commands else "OFF"}',
+            f'-DCMAKE_VERBOSE_MAKEFILE={"ON" if Project.verbose_makefile else "OFF"}',
             *args, '.')
 
     def _cmake_runner(self):

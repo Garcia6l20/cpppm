@@ -59,12 +59,12 @@ message(STATUS "cpppm: setting up {{ event.name }} ({{ event.event_type }})")
 # {{ event.event_type }}
 {%- if event.event_type == 0 %}
 execute_process(
-    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }}  -p {{ root_project._profile }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 {% elif event.event_type != 3 %}
 add_custom_command(TARGET {{ target.name }} {{ event.type_str }}
-    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }}  -p {{ root_project._profile }} -o ${CMAKE_BINARY_DIR} __cpppm_event__ {{ event.sha1 }}
     COMMENT "-- cpppm: firing {{target.name}} ({{ event.event_type }})"
 )
 {% endif %}

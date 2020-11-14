@@ -65,7 +65,7 @@ add_subdirectory({{subproject.build_relative }})
 {% if project.is_root -%}
 add_custom_command(OUTPUT cpppm-timestamp
     COMMENT "cpppm project changed, regenerating..."
-    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -o ${CMAKE_BINARY_DIR} generate
+    COMMAND {{ python }} {{ root_project.script_path | absolute_path }} -p {{ root_project._profile }} -o ${CMAKE_BINARY_DIR} generate
     COMMAND ${CMAKE_COMMAND} -E touch cpppm-timestamp
     DEPENDS{% for subproject in project.subprojects %}
         {{ subproject.script_path | to_root_project_link() }}
