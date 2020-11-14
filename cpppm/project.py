@@ -25,14 +25,15 @@ class Project:
     projects: List['Project'] = []
     main_target: Target = None
     build_path: Path = None
-    settings = None
     __all_targets: List[Target] = []
+    _profile = 'default'
 
     layout: Type[Layout] = DefaultProjectLayout
     dist_layout: Type[Layout] = DefaultDistLayout
 
     # export commands from CMake (can be used by clangd)
-    _export_compile_commands: False
+    export_compile_commands = False
+    verbose_makefile = False
 
     def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
         self.name = name
@@ -56,9 +57,10 @@ class Project:
         if not Project.root_project:
             self.build_path = _get_build_path(self.source_path)
             Project._root_project = self
-            Project.settings = get_settings()
+            Project.project_settings = get_settings()
             self.build_relative = '.'
         else:
+            self._root_project = Project._root_project
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
             self.build_path = (Project.root_project.build_path / self.build_relative).absolute()
         self.build_path.mkdir(exist_ok=True, parents=True)
@@ -71,8 +73,7 @@ class Project:
         self._executables: List[Executable] = []
         self._requires: List[str] = list()
         self._build_requires: List[str] = list()
-        self._requires_options: List[str] = list()
-        self.test_folder = None
+        self._settings: List[str, Any] = {"os", "compiler", "build_type", "arch"}
         self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
         self._build_modules: List[str] = []
@@ -82,11 +83,24 @@ class Project:
         self._conan_infos = None
         self._conan_refs = None
 
+        self.test_folder = None
+
         self.generators = []
         self._subprojects: List[Project] = list()
 
         Project.projects.append(self)
         Project.current_project = self
+
+    @classproperty
+    def profile(cls):
+        return cls._profile
+
+    @classmethod
+    def set_profile(cls, profile):
+        cls._profile = profile or 'default'
+        conan = get_conan()
+        pr = conan.read_profile(cls._profile)
+        cls.project_settings = dict(pr.settings)
 
     @classproperty
     def root_project(cls) -> 'Project':
@@ -236,8 +250,14 @@ class Project:
                 'options': self.requires_options,
             }))
 
+        settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
+
+        # profile_host = ProfileData(profiles=profile_names, settings=settings, options=self.options,
+        #                            env=None)
+
         conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
-                      settings=[f'{k}={v}' for k, v in Project.settings.items()])
+                      settings=settings, build=["outdated"], update=True)
+        # conan.out.flush()
 
         self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
 
@@ -287,36 +307,13 @@ class Project:
                     str_deps.append(dep)
             return ' '.join(str_deps)
 
-        # generate source symlinks
-
-        def make_project_link(project):
-            symlink_path = project.build_path.joinpath('project')
-
-            if not symlink_path.exists():
-                os.symlink(project.source_path, symlink_path, target_is_directory=True)
-
-        make_project_link(Project.root_project)
-        for project in self.subprojects:
-            make_project_link(project)
-
-        def to_project_link(path, project):
-            path = os.path.relpath(path, project.source_path)
-            return 'project/' + path  # os.path.relpath(path, Project.root_project.source_path)
-
-        def to_root_project_link(path):
-            path = Path(os.path.relpath(path, Project._root_project.source_path))
-            return f'{path.parent}/project/{path.name}'
-
-
         self.build_path.mkdir(exist_ok=True)
         _jenv.filters.update({
-            'to_project_link': to_project_link,
             'absolute_path': absolute_path,
             "relative_source_path": relative_source_path,
             "relative_build_path": relative_build_path,
             "to_library": to_library,
             "to_dependencies": to_dependencies,
-            "to_root_project_link": to_root_project_link,
         })
         jlists = _jenv.get_template('CMakeLists.txt.j2')
         lists = jlists.render({
@@ -339,7 +336,8 @@ class Project:
             open(str(self.build_path / 'CMakeLists.txt'), 'w').write(lists)
 
         if Project.root_project == self:
-            if Project._export_compile_commands:
+            # when called from conan, _export_compile_commands attribute does not exist !?!
+            if self.export_compile_commands:
                 self._logger.info('Exporting compilitation commands')
                 source_compile_commands = self.source_path / 'compile_commands.json'
                 build_compile_commands = self.build_path / 'compile_commands.json'
@@ -350,7 +348,9 @@ class Project:
     def configure(self, *args) -> int:
         runner = Runner("cmake", self.build_path)
         return runner.run(
-            f'-DCMAKE_BUILD_TYPE={Project.settings["build_type"]}',
+            f'-DCMAKE_BUILD_TYPE={Project.project_settings["build_type"]}',
+            f'-DCMAKE_EXPORT_COMPILE_COMMANDS={"ON" if Project.export_compile_commands else "OFF"}',
+            f'-DCMAKE_VERBOSE_MAKEFILE={"ON" if Project.verbose_makefile else "OFF"}',
             *args, '.')
 
     def _cmake_runner(self):

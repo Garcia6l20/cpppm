@@ -121,7 +121,7 @@ class on_postbuild(Event):
 
 class generator(Event):
 
-    def __init__(self, filepaths: List[Path], *args, depends=None, cwd=None, **kwargs):
+    def __init__(self, filepaths: List[Union[Path, str]], *args, depends=None, cwd=None, **kwargs):
         if depends is None:
             depends = []
         if cwd is None:

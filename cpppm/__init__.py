@@ -1,9 +1,16 @@
 import logging
 from pathlib import Path
 
+from colorama import Fore
+
 from conans.client.conan_api import Conan
 from conans.client.conf.detect import detect_defaults_settings
 from jinja2 import Environment, PackageLoader
+
+from conans.util.conan_v2_mode import CONAN_V2_MODE_ENVVAR
+
+import sys
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -14,6 +21,8 @@ _jenv = Environment(loader=PackageLoader('cpppm', 'templates'), extensions=['jin
 _output_dir_option = "--out-directory", "-o"
 
 __build_path = None
+
+os.environ[CONAN_V2_MODE_ENVVAR] = "1"
 
 __conan = Conan()
 

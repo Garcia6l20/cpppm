@@ -9,7 +9,7 @@ class ConanFile(ConanConanFile):
     name = project.package_name
     version = project.version
     license = project.license
-    settings = list(project.settings.keys())
+    settings = project.settings
     options = project.options
     requires = project.requires
     build_requires = project.build_requires
