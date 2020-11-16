@@ -36,6 +36,8 @@ class Project:
     export_compile_commands = False
     verbose_makefile = False
 
+    cc = get_compiler('c++')
+
     def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
         self.name = name
         if not package_name:
@@ -60,6 +62,7 @@ class Project:
             Project._root_project = self
             Project.project_settings = get_settings()
             self.build_relative = '.'
+
         else:
             self._root_project = Project._root_project
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
@@ -266,128 +269,22 @@ class Project:
 
     def generate(self):
         """Generates CMake stuff"""
-
-        # generate subprojects
-        for project in self.subprojects:
-            self._logger.debug(f'Generating {project.name} ({project.source_path})')
-            project.generate()
-
-        def relative_source_path(path: Union[Path, str]):
-            return path.absolute().relative_to(self.source_path).as_posix() if isinstance(path, Path) else path
-
-        def absolute_path(path: Path):
-            return path.absolute().as_posix()
-
-        def relative_build_path(path: Union[Path, str]):
-            if not isinstance(path, Path):
-                return (self.build_path / Path(path)).as_posix()
-            elif path.is_absolute():
-                return path.absolute().relative_to(self.build_path).as_posix()
-            else:
-                return (self.build_path / Path(path)).as_posix()
-
-        def to_library(lib: Union[Library, str]):
-            if type(lib) is Library:
-                return lib.name
-            elif lib in Project.root_project.conan_packages:
-                return f'CONAN_PKG::{lib}'
-            else:
-                return lib
-
-        def to_dependencies(deps: List[Union[Path, Target]], project: Optional[Project]):
-            str_deps = []
-            for dep in deps:
-                if isinstance(dep, Target):
-                    str_deps.append(dep.name)
-                elif isinstance(dep, Path):
-                    path = os.path.relpath(dep, project.build_path)
-                    str_deps.append(path)
-                else:
-                    str_deps.append(dep)
-            return ' '.join(str_deps)
-
-        self.build_path.mkdir(exist_ok=True)
-        _jenv.filters.update({
-            'absolute_path': absolute_path,
-            "relative_source_path": relative_source_path,
-            "relative_build_path": relative_build_path,
-            "to_library": to_library,
-            "to_dependencies": to_dependencies,
-        })
-        jlists = _jenv.get_template('CMakeLists.txt.j2')
-        lists = jlists.render({
-            'project': self,
-            'cache': {
-                'subdirs': []
-            },
-            'root_project': Project.root_project,
-            'python': Path(sys.executable).as_posix(),
-            'pythonpath': self.script_path.parent.parent.absolute().as_posix(),
-        })
-        if Path.exists(self.build_path / 'CMakeLists.txt'):
-            old_sha1 = hashlib.sha1(open(str(self.build_path / 'CMakeLists.txt'), 'r').read().encode()).hexdigest()
-            sha1 = hashlib.sha1(lists.encode()).hexdigest()
-            if sha1 != old_sha1:
-                open(str(self.build_path / 'CMakeLists.txt'), 'w').write(lists)
-            else:
-                self._logger.debug(f'{self.name} CMakeLists.txt is up-to-date')
-        else:
-            open(str(self.build_path / 'CMakeLists.txt'), 'w').write(lists)
-
-        if Project.root_project == self:
-            # when called from conan, _export_compile_commands attribute does not exist !?!
-            if self.export_compile_commands:
-                self._logger.info('Exporting compilitation commands')
-                source_compile_commands = self.source_path / 'compile_commands.json'
-                build_compile_commands = self.build_path / 'compile_commands.json'
-                if source_compile_commands.exists():
-                    source_compile_commands.unlink()
-                source_compile_commands.symlink_to(build_compile_commands)
+        self._logger.debug('TODO remove Project.generate method')
 
     def configure(self, *args) -> int:
-        runner = Runner("cmake", self.build_path)
-        return runner.run(
-            f'-DCMAKE_BUILD_TYPE={Project.project_settings["build_type"]}',
-            f'-DCMAKE_EXPORT_COMPILE_COMMANDS={"ON" if Project.export_compile_commands else "OFF"}',
-            f'-DCMAKE_VERBOSE_MAKEFILE={"ON" if Project.verbose_makefile else "OFF"}',
-            *args, '.')
+        self._logger.debug('TODO remove Project.configure method')
 
     def _cmake_runner(self):
         return Runner("cmake", self.build_path)
 
     def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
         if not target:
-            target = self.main_target
+            t = self.main_target
         else:
-            target = target if isinstance(target, Target) else self.target(target)
+            t = target if isinstance(target, Target) else self.target(target)
 
-        libraries = []
-        for lib in target.link_libraries:
-            libraries.append(lib.name)
-            self.build(lib)
-
-        if isinstance(target, Library) and target.is_header_only:
-            return 0  # skip header-only build requests
-
-        cc = get_compiler('c++')
-        objs = cc.compile(target.compile_sources, self.build_path,
-                          include_paths=[self.source_path, *target.include_paths])
-        if isinstance(target, Executable):
-            cc.link(objs, target.bin_path, library_paths=[self.lib_path], libraries=libraries)
-        else:
-            cc.make_library(objs, target.bin_path)
+        t.build()
         return 0
-
-        # runner = self._cmake_runner()
-        # args = ['--build', '.']
-        # if target:
-        #     args.extend(('--target', target))
-        # args.extend(('--config', Project.build_type))
-        # if not jobs:
-        #     args.append('-j')
-        # else:
-        #     args.extend(('-j', jobs))
-        # return runner.run(*args)
 
     def run(self, target_name: str, *args):
         target = target_name or self.default_executable or self.main_target

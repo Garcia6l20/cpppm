@@ -3,6 +3,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import List, Set
 
+from .build.compiler import get_compiler
 from .utils.decorators import list_property, dependencies_property
 from .utils.pathlist import PathList
 
@@ -32,6 +33,11 @@ class Target:
 
         if 'install' in kwargs:
             self.install = bool(kwargs['install'])
+
+    @property
+    def cc(self):
+        from .project import Project
+        return Project.cc
 
     @property
     def header_pattern(self) -> str:
@@ -107,6 +113,17 @@ class Target:
     @abstractmethod
     def command(self) -> str:
         raise NotImplementedError
+
+    @abstractmethod
+    def build(self):
+        raise NotImplementedError
+
+    def build_deps(self) -> List[str]:
+        libraries = []
+        for lib in self.link_libraries:
+            libraries.append(lib.name)
+            lib.build()
+        return libraries
 
     @property
     @abstractmethod

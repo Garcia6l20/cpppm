@@ -38,15 +38,25 @@ class Compiler(Runner):
                 except ProcessError as err:
                     raise CompileError(err)
             else:
-                self._logger.debug(f'object {out} is up-to-date')
+                self._logger.info(f'object {out} is up-to-date')
         return objs
 
-    def make_library(self, objects, output):
+    @staticmethod
+    def _make_link_args(library_paths=None, libraries=None):
+        args = []
+        if library_paths:
+            args.extend([f'-L{str(path)}' for path in library_paths])
+        if libraries:
+            args.extend([f'-l{":" if "." in Path(lib).suffix else ""}{str(lib)}' for lib in libraries])
+        return args
+
+    def make_library(self, objects, output, library_paths=None, libraries=None):
         output = output if isinstance(output, Path) else Path(output)
         shared = output.suffix == '.so'
         if shared:
             try:
-                self.run('-shared', *[str(o) for o in objects], '-o', str(output))
+                link_args = self._make_link_args(library_paths, libraries)
+                self.run('-shared', *link_args, *[str(o) for o in objects], '-o', str(output))
             except ProcessError as err:
                 raise CompileError(err)
         else:
@@ -57,13 +67,9 @@ class Compiler(Runner):
                 raise CompileError(err)
 
     def link(self, objects, output, *args, library_paths=None, libraries=None):
-        opts = []
-        if library_paths:
-            opts.extend([f'-L{str(path)}' for path in library_paths])
-        if libraries:
-            opts.extend([f'-l{":" if "." in Path(lib).suffix else ""}{str(lib)}' for lib in libraries])
+        link_args = self._make_link_args(library_paths, libraries)
         try:
-            self.run(*[str(o) for o in objects], *opts, *args, '-o', str(output))
+            self.run(*[str(o) for o in objects], *link_args, *args, '-o', str(output))
         except ProcessError as err:
             raise CompileError(err)
 

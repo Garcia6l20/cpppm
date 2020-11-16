@@ -9,7 +9,7 @@ basic.sources = {
     'src/private.hpp'
 }
 basic.include_dirs = 'include'
-basic.shared = False
+basic.shared = True
 # same effect
 # basic.static = True
 hello = project.main_executable()

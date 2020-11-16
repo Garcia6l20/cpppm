@@ -53,7 +53,7 @@ class Library(Target):
     @property
     def library(self) -> str:
         if platform.system() == 'Linux':
-            return None if self.shared else 'lib' + self.name + '.a'
+            return f'lib{self.name}.{"so" if self.shared else "a"}'
         elif platform.system() == 'Windows':
             return self.name + '.lib'
         else:
@@ -96,6 +96,13 @@ class Library(Target):
     @property
     def tests(self) -> set:
         return self._tests
+
+    def build(self):
+        libraries = self.build_deps()
+
+        objs = self.cc.compile(self.compile_sources, self.build_path,
+                               include_paths=[self.source_path, *self.include_paths])
+        self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path], libraries=libraries)
 
     def _add_test(self, test):
         from . import Project, Executable

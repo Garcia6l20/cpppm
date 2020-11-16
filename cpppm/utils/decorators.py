@@ -2,18 +2,24 @@ import os
 from collections.abc import Iterable
 from functools import wraps
 from pathlib import Path
-from typing import Callable, List, Set, Union, Mapping
+from typing import Callable, List, Set, Union, Mapping, Dict
 
 
-def working_directory(path: Path, create=True):
+def working_directory(cwd: Path, env: Dict = None, create=True):
     def decorator(func):
         @wraps(func)
         def wrapper():
             """Changes working directory and returns to previous on exit."""
             prev_cwd = Path.cwd()
+            oldenv = None
+            if env:
+                oldenv = os.environ
+                os.environ.update(env)
             if create:
-                path.mkdir(exist_ok=True)
-            os.chdir(str(path.absolute()))
+                cwd.mkdir(exist_ok=True)
+            os.chdir(str(cwd.absolute()))
+            if oldenv:
+                os.environ = oldenv
             try:
                 result = func()
             finally:

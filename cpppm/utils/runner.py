@@ -1,5 +1,6 @@
 import subprocess as sp
 from pathlib import Path
+from typing import Dict, Union
 
 from .decorators import working_directory
 from .. import _get_logger
@@ -10,17 +11,22 @@ class ProcessError(RuntimeError):
 
 
 class Runner:
-    def __init__(self, executable, cwd: Path = None, recorder=None):
+    def __init__(self, executable, cwd: Path = None, env=None, recorder=None):
         self._logger = _get_logger(self, executable)
         self.executable = str(executable.absolute()) if isinstance(executable, Path) else executable
         self.cwd = cwd
+        self.env = env
         self.recorder = recorder
 
-    def run(self, *args, cwd=None):
+    def run(self, *args, cwd: Union[str, Path] = None, env: Dict = None):
         if not cwd:
             cwd = self.cwd or Path.cwd()
+        if not env:
+            env = self.env
+        else:
+            env.update(self.env)
 
-        @working_directory(cwd)
+        @working_directory(cwd=Path(cwd), env=env)
         def do_run():
             tmp = [self.executable, *args]
             self._logger.debug(f'cwd: {Path.cwd()}')
