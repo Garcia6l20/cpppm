@@ -131,7 +131,7 @@ def test(ctx, target):
 
 
 @cli.command()
-@click.argument("target")
+@click.argument("target", required=False)
 @click.argument("args", required=False, nargs=-1, default=None)
 @click.pass_context
 def run(ctx, target, args):
