@@ -12,6 +12,7 @@ from conans.model.requires import ConanFileReference
 from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter
 
 from . import _jenv, _get_logger, _get_build_path, get_conan, get_settings
+from .build.compiler import get_compiler
 from .executable import Executable
 from .library import Library
 from .target import Target
@@ -354,20 +355,39 @@ class Project:
     def _cmake_runner(self):
         return Runner("cmake", self.build_path)
 
-    def build(self, target: str = None, jobs: int = None) -> int:
-        t = self.target(target)
-        if isinstance(t, Library) and t.is_header_only:
-            return 0  # skip header-only build requests
-        runner = self._cmake_runner()
-        args = ['--build', '.']
-        if target:
-            args.extend(('--target', target))
-        args.extend(('--config', Project.build_type))
-        if not jobs:
-            args.append('-j')
+    def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
+        if not target:
+            target = self.main_target
         else:
-            args.extend(('-j', jobs))
-        return runner.run(*args)
+            target = target if isinstance(target, Target) else self.target(target)
+
+        libraries = []
+        for lib in target.link_libraries:
+            libraries.append(lib.name)
+            self.build(lib)
+
+        if isinstance(target, Library) and target.is_header_only:
+            return 0  # skip header-only build requests
+
+        cc = get_compiler('c++')
+        objs = cc.compile(target.compile_sources, self.build_path,
+                          include_paths=[self.source_path, *target.include_paths])
+        if isinstance(target, Executable):
+            cc.link(objs, target.bin_path, library_paths=[self.lib_path], libraries=libraries)
+        else:
+            cc.make_library(objs, target.bin_path)
+        return 0
+
+        # runner = self._cmake_runner()
+        # args = ['--build', '.']
+        # if target:
+        #     args.extend(('--target', target))
+        # args.extend(('--config', Project.build_type))
+        # if not jobs:
+        #     args.append('-j')
+        # else:
+        #     args.extend(('-j', jobs))
+        # return runner.run(*args)
 
     def run(self, target_name: str, *args):
         target = target_name or self.default_executable or self.main_target

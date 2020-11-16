@@ -28,15 +28,18 @@ class Compiler(Runner):
             opts.append('-fPIC')
         if include_paths:
             opts.extend([f'-I{str(path)}' for path in include_paths])
+        objs = []
         for source in sources:
             out = output / source.with_suffix('.o').name
-            if force or (source.lstat().st_mtime > out.lstat().st_mtime):
+            objs.append(out)
+            if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime):
                 try:
                     self.run(*opts, *args, str(source), '-o', str(out))
                 except ProcessError as err:
                     raise CompileError(err)
             else:
-                self._logger.debug(f'object {output} is up-to-date')
+                self._logger.debug(f'object {out} is up-to-date')
+        return objs
 
     def make_library(self, objects, output):
         output = output if isinstance(output, Path) else Path(output)

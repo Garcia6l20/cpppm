@@ -13,14 +13,9 @@ class Library(Target):
         from . import Executable
         super().__init__(name, source_path, build_path, **kwargs)
         self.export_header = None
-        self._header_pattern: Set[str] = {r'.*\.h(pp)?$'}
         self._public_pattern: Set[str] = {r'.*/include/.+'}
         self._tests: Set[Executable] = set()
         self._tests_backend: str = None
-
-    @property
-    def header_pattern(self) -> str:
-        return '|'.join(pattern for pattern in self._header_pattern)
 
     @property
     def public_pattern(self) -> str:
@@ -51,9 +46,9 @@ class Library(Target):
     @property
     def bin_path(self) -> Path:
         if platform.system() == 'Windows':
-            return self._bin_path / self.binary
+            return self._bin_path / self.library
         else:
-            return self._lib_path / self.binary
+            return self._lib_path / self.library
 
     @property
     def library(self) -> str:
@@ -72,15 +67,6 @@ class Library(Target):
             return None if self.static else self.name + '.dll'
         else:
             raise NotImplementedError  # TODO
-
-    @property
-    def headers(self) -> List[Path]:
-        pattern = self.header_pattern
-        out: List[Path] = []
-        for source in self.sources:
-            if re.match(pattern, str(source)):
-                out.append(source)
-        return out
 
     @property
     def is_header_only(self) -> bool:

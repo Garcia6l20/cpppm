@@ -1,6 +1,7 @@
+import re
 from abc import abstractmethod
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from .utils.decorators import list_property, dependencies_property
 from .utils.pathlist import PathList
@@ -18,6 +19,7 @@ class Target:
         self.name = name
         self._source_path = source_path
         self._build_path = build_path
+        self._header_pattern: Set[str] = {r'.*\.h((pp)|(xx)|(h))?$'}
 
         self._sources = PathList(source_path)
         self._dependencies = PathList(build_path)
@@ -30,6 +32,28 @@ class Target:
 
         if 'install' in kwargs:
             self.install = bool(kwargs['install'])
+
+    @property
+    def header_pattern(self) -> str:
+        return '|'.join(pattern for pattern in self._header_pattern)
+
+    @property
+    def headers(self) -> List[Path]:
+        pattern = self.header_pattern
+        out: List[Path] = []
+        for source in self.sources:
+            if re.match(pattern, str(source)):
+                out.append(source)
+        return out
+
+    @property
+    def compile_sources(self) -> PathList:
+        pattern = self.header_pattern
+        out: List[Path] = []
+        for source in self.sources:
+            if not re.match(pattern, str(source)):
+                out.append(source)
+        return out
 
     @property
     def source_path(self) -> Path:
@@ -54,6 +78,14 @@ class Target:
     @list_property
     def include_dirs(self) -> PathList:
         return self._include_dirs
+
+    @property
+    def include_paths(self):
+        paths = self._include_dirs.paths
+        for lib in self.link_libraries:
+            if isinstance(lib, Target):
+                paths.extend(lib.include_paths)
+        return paths
 
     @list_property
     def subdirs(self) -> PathList:
