@@ -1,7 +1,7 @@
 import re
 from abc import abstractmethod
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from .build.compiler import get_compiler
 from .utils.decorators import list_property, dependencies_property
@@ -118,12 +118,26 @@ class Target:
     def build(self):
         raise NotImplementedError
 
-    def build_deps(self) -> List[str]:
-        libraries = []
+    def build_deps(self) -> Tuple[Set[str], Set[str], Set[str]]:
+        libraries = set()
+        library_paths = set()
+        include_paths = set()
         for lib in self.link_libraries:
-            libraries.append(lib.name)
-            lib.build()
-        return libraries
+            from cpppm import Library
+            if isinstance(lib, Library):
+                if not lib.is_header_only:
+                    libraries.add(lib.name)
+                    lib.build()
+            else:
+                assert isinstance(lib, str)
+                from cpppm import Project
+                for path in Project.current_project.conan_library_paths(lib):
+                    library_paths.add(path)
+                for path in Project.current_project.conan_include_paths(lib):
+                    include_paths.add(path)
+                for conan_lib in Project.current_project.conan_link_libraries(lib):
+                    libraries.add(conan_lib)
+        return libraries, library_paths, include_paths
 
     @property
     @abstractmethod

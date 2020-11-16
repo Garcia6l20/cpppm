@@ -243,7 +243,6 @@ class Project:
             self._logger.info('project has no requirements')
             return
         conan = get_conan()
-        recorder = ActionRecorder()
 
         open(str(self.build_path / 'conanfile.txt'), 'w').write(
             _jenv.get_template('conanfile.txt.j2').render({
@@ -254,14 +253,38 @@ class Project:
 
         settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
 
-        # profile_host = ProfileData(profiles=profile_names, settings=settings, options=self.options,
-        #                            env=None)
-
-        conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
+        self._conan_infos = conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
                       settings=settings, build=["outdated"], update=True)
-        # conan.out.flush()
 
-        self._conan_infos = recorder.get_info(conan.app.config.revisions_enabled)
+    def conan_infos(self, pkg_name):
+        for installed in self._conan_infos['installed']:
+            if installed['recipe']['name'] == pkg_name:
+                for pkg in installed['packages']:
+                    return pkg['cpp_info']
+
+    def _conan_paths(self, pkg_name, path_name):
+        infos = self.conan_infos(pkg_name)
+        if infos:
+            return [Path(infos['rootpath']) / path for path in infos[path_name]]
+
+    def conan_library_paths(self, pkg_name):
+        return self._conan_paths(pkg_name, 'libdirs')
+
+    def conan_link_libraries(self, pkg_name):
+        infos = self.conan_infos(pkg_name)
+        if infos and 'libs' in infos:
+            return infos['libs']
+        else:
+            return []
+
+    def conan_include_paths(self, pkg_name):
+        return self._conan_paths(pkg_name, 'includedirs')
+
+    def conan_build_paths(self, pkg_name):
+        return self._conan_paths(pkg_name, 'builddirs')
+
+    def conan_res_paths(self, pkg_name):
+        return self._conan_paths(pkg_name, 'resdirs')
 
     @property
     def is_root(self):
@@ -283,7 +306,11 @@ class Project:
         else:
             t = target if isinstance(target, Target) else self.target(target)
 
-        t.build()
+        if not t:
+            for subproj in self.subprojects:
+                subproj.build()
+        else:
+            t.build()
         return 0
 
     def run(self, target_name: str, *args):
@@ -398,3 +425,4 @@ class Project:
         conan = get_conan()
         conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder,
                      options=[f'{k}={v}' for k, v in self.requires_options.items()])
+

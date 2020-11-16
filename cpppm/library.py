@@ -98,11 +98,14 @@ class Library(Target):
         return self._tests
 
     def build(self):
-        libraries = self.build_deps()
+        libraries, library_paths, include_paths = self.build_deps()
+
+        if self.is_header_only:
+            return
 
         objs = self.cc.compile(self.compile_sources, self.build_path,
-                               include_paths=[self.source_path, *self.include_paths])
-        self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path], libraries=libraries)
+                               include_paths=[self.source_path, *self.include_paths, *include_paths])
+        self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)
 
     def _add_test(self, test):
         from . import Project, Executable

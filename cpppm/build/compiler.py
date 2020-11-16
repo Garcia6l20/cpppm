@@ -69,6 +69,7 @@ class Compiler(Runner):
     def link(self, objects, output, *args, library_paths=None, libraries=None):
         link_args = self._make_link_args(library_paths, libraries)
         try:
+            output.parent.mkdir(parents=True, exist_ok=True)
             self.run(*[str(o) for o in objects], *link_args, *args, '-o', str(output))
         except ProcessError as err:
             raise CompileError(err)

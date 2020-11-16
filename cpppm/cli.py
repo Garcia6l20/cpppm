@@ -127,7 +127,9 @@ def test(ctx, target):
         assert isinstance(target, Library)
         target.test()
     else:
-        raise NotImplementedError
+        for tst in Project.root_project.main_target.tests:
+            tst.build()
+            tst.run()
 
 
 @cli.command()
