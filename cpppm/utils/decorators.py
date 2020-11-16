@@ -58,10 +58,10 @@ class list_property:
 class dependencies_property(list_property):
 
     def __set__(self, obj, val):
-        if hasattr(val, 'event'):
-            self.fget(obj).extend(val.event.target)
-        else:
-            super().__set__(obj, val)
+        # if hasattr(val, 'event'):
+        #     self.fget(obj).extend(val.event.target)
+        # else:
+        super().__set__(obj, val)
 
 
 class classproperty(property):

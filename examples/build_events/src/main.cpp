@@ -1,6 +1,6 @@
-#include <iostream>
-#include <include/config.hpp>
+#include <fmt/format.h>
+#include <generated/config.hpp>
 
 int main() {
-    std::cout << "-- " << "generated at: " << GENERATED_TIME "\n";
+  fmt::print("-- generated at: {}\n", GENERATED_TIME);
 }

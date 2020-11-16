@@ -280,6 +280,16 @@ class Project:
     def conan_include_paths(self, pkg_name):
         return self._conan_paths(pkg_name, 'includedirs')
 
+    def conan_defines(self, pkg_name):
+        infos = self.conan_infos(pkg_name)
+        if 'defines' in infos:
+            return infos['defines']
+        elif 'components' in infos:
+            for infos in infos['components'].values():
+                if 'defines' in infos:
+                    return infos['defines']
+        return []
+
     def conan_build_paths(self, pkg_name):
         return self._conan_paths(pkg_name, 'builddirs')
 

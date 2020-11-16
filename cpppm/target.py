@@ -118,10 +118,19 @@ class Target:
     def build(self):
         raise NotImplementedError
 
-    def build_deps(self) -> Tuple[Set[str], Set[str], Set[str]]:
+    def build_deps(self) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
         libraries = set()
         library_paths = set()
         include_paths = set()
+        definitions = set()
+
+        include_paths.add(self.build_path)
+
+        from .events import generator
+        for evt in self._dependencies.events:
+            if isinstance(evt.event, generator):
+                evt()
+
         for lib in self.link_libraries:
             from cpppm import Library
             if isinstance(lib, Library):
@@ -137,7 +146,10 @@ class Target:
                     include_paths.add(path)
                 for conan_lib in Project.current_project.conan_link_libraries(lib):
                     libraries.add(conan_lib)
-        return libraries, library_paths, include_paths
+                for definition in Project.current_project.conan_defines(lib):
+                    definitions.add(definition)
+
+        return libraries, library_paths, include_paths, definitions
 
     @property
     @abstractmethod

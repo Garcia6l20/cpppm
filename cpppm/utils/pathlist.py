@@ -9,6 +9,7 @@ class PathList:
         super().__init__()
         self.root = root.resolve()
         self.paths = []
+        self.events = []
         if paths:
             self.extend(paths)
 
@@ -33,8 +34,11 @@ class PathList:
             path = self.root / path
         return path.absolute()
 
-    def append(self, path: Path) -> None:
-        self.paths.append(self.__adjust__(path))
+    def append(self, obj) -> None:
+        if isinstance(obj, (str, Path)):
+            self.paths.append(self.__adjust__(obj))
+        elif hasattr(obj, 'event'):
+            self.events.append(obj)
 
     def extend(self, paths: Iterable[Path]):
         for p in paths:

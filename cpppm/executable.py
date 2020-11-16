@@ -25,12 +25,15 @@ class Executable(Target):
         return self._bin_path / self.binary
 
     def build(self):
-        libraries, library_paths, include_paths = self.build_deps()
+        libraries, library_paths, include_paths, definitions = self.build_deps()
 
         objs = self.cc.compile(self.compile_sources, self.build_path,
-                               include_paths=[self.source_path, *self.include_paths, *include_paths])
+                               include_paths=[self.source_path, *self.include_paths, *include_paths],
+                               definitions=definitions)
+        self.bin_path.parent.mkdir(exist_ok=True, parents=True)
         self.cc.link(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)
 
     def run(self, *args, working_directory=None):
+        self.build()
         runner = Runner(self.executable_path, working_directory, env={'LD_LIBRARY_PATH': str(self._lib_path)})
         return runner.run(*args)

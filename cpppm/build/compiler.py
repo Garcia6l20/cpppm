@@ -19,7 +19,7 @@ class Compiler(Runner):
     def on_cmd(self, cmd):
         self.commands.append(cmd)
 
-    def compile(self, sources, output, *args, force=False, pic=True, include_paths=None):
+    def compile(self, sources, output, *args, force=False, pic=True, include_paths=None, definitions=None):
         sources = [Path(src) for src in sources] if isinstance(sources, list) else [Path(sources)]
         output = Path(output)
         assert output.is_dir()
@@ -28,6 +28,8 @@ class Compiler(Runner):
             opts.append('-fPIC')
         if include_paths:
             opts.extend([f'-I{str(path)}' for path in include_paths])
+        if definitions:
+            opts.extend([f'-D{definition}' for definition in definitions])
         objs = []
         for source in sources:
             out = output / source.with_suffix('.o').name
