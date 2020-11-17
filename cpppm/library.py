@@ -52,7 +52,9 @@ class Library(Target):
 
     @property
     def library(self) -> str:
-        if platform.system() == 'Linux':
+        if self.is_header_only:
+            return None
+        elif platform.system() == 'Linux':
             return f'lib{self.name}.{"so" if self.shared else "a"}'
         elif platform.system() == 'Windows':
             return self.name + '.lib'
@@ -61,7 +63,9 @@ class Library(Target):
 
     @property
     def binary(self) -> str:
-        if platform.system() == 'Linux':
+        if self.is_header_only:
+            return None
+        elif platform.system() == 'Linux':
             return None if self.static else 'lib' + self.name + '.so'
         elif platform.system() == 'Windows':
             return None if self.static else self.name + '.dll'

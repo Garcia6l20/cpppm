@@ -96,6 +96,7 @@ class LayoutConverter:
         else:
             if not isinstance(in_path, Path):
                 in_path = Path(in_path)
+            matches = set()
             for attr in (attr for attr in dir(self.src) if not attr.startswith('_')):
                 src = getattr(self.src, attr)
                 patterns = [f'(?:{re.escape(src)})' for src in src]
@@ -106,7 +107,13 @@ class LayoutConverter:
                     dst = getattr(self.dst, attr)[0]
                     trailing = match.group(2)
                     out_path = (root or self.root) / (anchor or self.anchor) / dst / trailing
-                    if self._logger:
-                        self._logger.info(f'matched: {attr}, {src} -> {dst}: {out_path}')
-                    return in_path, out_path
-            raise UnmappedToLayoutError(in_path)
+                    self._logger and self._logger.info(f'matched: {attr}, {src} -> {dst}: {out_path}')
+                    matches.add((in_path, out_path))
+            if len(matches) == 0:
+                raise UnmappedToLayoutError(in_path)
+            else:
+                best_match = matches.pop()
+                for match in matches:
+                    if match[1] > best_match[1]:
+                        best_match = match
+                return best_match

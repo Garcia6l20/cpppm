@@ -3,13 +3,14 @@ import importlib.util
 import inspect
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import List, Union, cast, Any, Dict, Optional, Type
 
 from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
-from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter
+from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter, UnmappedToLayoutError
 
 from . import _jenv, _get_logger, _get_build_path, get_conan, get_settings
 from .build.compiler import get_compiler
@@ -375,57 +376,53 @@ class Project:
         setattr(self, func.__name__, func)
 
     def install(self, destination: Union[str, Path]):
-        # if isinstance(destination, Path):
-        #     destination = str(destination)
-        runner = Runner("cmake")
-        return runner.run('--install', str(self.build_path), '--prefix', str(destination))
-        #
-        # logger = self._logger
-        #
-        # def _copy(self: Path, target: Path):
-        #     logger.info(f'Copying {self} -> {target}')
-        #
-        #     target.mkdir(parents=True, exist_ok=True)
-        #     shutil.copy(str(self.absolute().as_posix()), str(target.absolute().as_posix()))
-        #
-        # Path.copy = _copy
-        #
-        # conv = self.dist_converter
-        # conv.anchor = destination
-        # conv.root = Path(os.path.commonpath([self.build_path, self.source_path]))
-        #
-        # def do_install(item):
-        #     if isinstance(item, tuple):
-        #         item[0].copy(item[1])
-        #     else:
-        #         for src, dst in item:
-        #             src.copy(dst)
-        #
-        # # copy executables
-        # for exe in self._executables:
-        #     do_install(conv(exe.bin_path))
-        #
-        # # copy libraries/headers
-        # for lib in self._libraries:
-        #     if lib.binary:
-        #         do_install(conv(lib.bin_path))
-        #     if lib.library:
-        #         do_install(conv(lib.lib_path))
-        #
-        # try:
-        #     for lib in self._libraries:
-        #         do_install(conv(lib.public_headers))
-        #     do_install(conv(self.build_modules))
-        # except UnmappedToLayoutError as err:
-        #     raise UnmappedToLayoutError(err.item,
-        #                                 f'You are trying to install {err.item} '
-        #                                 'but is not defined in the project layout, '
-        #                                 'you have to extend the default layout with your own paths '
-        #                                 f'(during installation of {self.name})')
-        #
-        # # subprojects
-        # for project in self.subprojects:
-        #     project.install(destination)
+        logger = self._logger
+
+        def _copy(self: Path, target: Path):
+            logger.info(f'Copying {self} -> {target}')
+
+            target.mkdir(parents=True, exist_ok=True)
+            shutil.copy(str(self.absolute().as_posix()), str(target.absolute().as_posix()))
+
+        Path.copy = _copy
+
+        conv = self.dist_converter
+        conv.anchor = destination
+
+        def do_install(item):
+            if isinstance(item, tuple):
+                item[0].copy(item[1].parent)
+            else:
+                for src, dst in item:
+                    src.copy(dst.parent)
+
+        # copy executables
+        for exe in self._executables:
+            exe.build()
+            do_install(conv(exe.bin_path))
+
+        # copy libraries/headers
+        for lib in self._libraries:
+            lib.build()
+            if lib.binary:
+                do_install(conv(lib.bin_path))
+            if lib.library:
+                do_install(conv(lib.lib_path))
+
+        try:
+            for lib in self._libraries:
+                do_install(conv(lib.public_headers))
+            # do_install(conv(self.build_modules))
+        except UnmappedToLayoutError as err:
+            raise UnmappedToLayoutError(err.item,
+                                        f'You are trying to install {err.item} '
+                                        'but is not defined in the project layout, '
+                                        'you have to extend the default layout with your own paths '
+                                        f'(during installation of {self.name})')
+
+        # subprojects
+        for project in self.subprojects:
+            project.install(destination)
 
     def package(self):
         conanfile_path = self.source_path / 'conanfile.py'
