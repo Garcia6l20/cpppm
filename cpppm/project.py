@@ -98,6 +98,10 @@ class Project:
         Project.current_project = self
 
     @classproperty
+    def all(cls):
+        return cls.__all_targets
+
+    @classproperty
     def profile(cls):
         return cls._profile
 

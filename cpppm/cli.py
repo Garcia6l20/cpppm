@@ -128,9 +128,11 @@ def test(ctx, target):
         assert isinstance(target, Library)
         target.test()
     else:
-        for tst in root_project().main_target.tests:
-            tst.build()
-            tst.run()
+        for lib in Project.all:
+            if isinstance(lib, Library):
+                for tst in lib.tests:
+                    tst.build()
+                    tst.run()
 
 
 @cli.command()
