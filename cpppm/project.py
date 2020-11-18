@@ -421,3 +421,11 @@ class Project:
         conan = get_conan()
         conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder,
                      options=[f'{k}={v}' for k, v in self.requires_options.items()])
+
+
+def current_project() -> Project:
+    return Project.current_project
+
+
+def root_project() -> Project:
+    return Project.root_project

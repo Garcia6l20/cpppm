@@ -13,9 +13,9 @@ class Target:
 
     def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
         from .events import Event
-        from .project import Project
-        self._bin_path = Project.current_project.bin_path
-        self._lib_path = Project.current_project.lib_path
+        from .project import current_project
+        self._bin_path = current_project().bin_path
+        self._lib_path = current_project().lib_path
         self.name = name
         self._source_path = source_path
         self._build_path = build_path
@@ -163,17 +163,17 @@ class Target:
                 assert isinstance(lib, str)
                 if lib == 'spdlog':
                     pass
-                from cpppm import Project
-                for path in Project.current_project.conan_library_paths(lib):
+                from cpppm.project import current_project
+                for path in current_project().conan_library_paths(lib):
                     data['library_paths'].add(path)
-                for path in Project.current_project.conan_include_paths(lib):
+                for path in current_project().conan_include_paths(lib):
                     data['include_paths'].add(path)
-                sys_libs, libs = Project.current_project.conan_link_libraries(lib)
+                sys_libs, libs = current_project().conan_link_libraries(lib)
                 for conan_lib in libs:
                     data['libraries'].add(conan_lib)
                 for conan_lib in sys_libs:
                     data['libraries'].add(conan_lib)
-                for definition in Project.current_project.conan_defines(lib):
+                for definition in current_project().conan_defines(lib):
                     data['compile_definitions'].add(definition)
 
         return data, built

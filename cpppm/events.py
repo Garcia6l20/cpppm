@@ -6,8 +6,7 @@ from functools import wraps
 from pathlib import Path
 from typing import List, Union
 
-from cpppm import _jenv
-from cpppm.project import Project
+from cpppm.project import current_project
 from cpppm.target import Target
 from cpppm.utils import working_directory
 from cpppm.utils.pathlist import PathList
@@ -74,8 +73,8 @@ class Event:
         self.source_path = Path(inspect.getfile(func))
         if self.cwd is None:
             self.cwd = self.source_path.parent
-        self.project = Project.current_project
-        self.event_path = Project.current_project.build_path.joinpath(f'{self.function_name}.py')
+        self.project = current_project()
+        self.event_path = current_project().build_path.joinpath(f'{self.function_name}.py')
 
         @wraps(func)
         @working_directory(self.cwd)
@@ -90,14 +89,14 @@ class Event:
         if '__cpppm_event__' in sys.argv and sys.argv[-1] == self.sha1:
             sys.exit(wrapper())
 
-        Project.current_project.build_path.mkdir(exist_ok=True)
+        current_project().build_path.mkdir(exist_ok=True)
         if self.event_type == EventKind.GENERATOR:
-            Project.current_project.generators.append(self)
+            current_project().generators.append(self)
         else:
             self.target.events.append(self)
 
         setattr(wrapper, 'event', self)
-        Project.current_project.set_event(wrapper)
+        current_project().set_event(wrapper)
         return wrapper
 
 
@@ -125,7 +124,7 @@ class generator(Event):
         if depends is None:
             depends = []
         if cwd is None:
-            cwd = Project.build_path
+            cwd = current_project().build_path
         super().__init__(EventKind.GENERATOR, PathList(cwd, filepaths), *args, depends=depends, cwd=cwd, **kwargs)
 
     def __str__(self):

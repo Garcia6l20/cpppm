@@ -117,12 +117,12 @@ class Library(Target):
             return super(Library, self).build(force=force)
 
     def _add_test(self, test):
-        from . import Project, Executable
+        from . import current_project, Executable
         if isinstance(test, Executable):
             exe = test
         else:
             assert isinstance(test, str)
-            exe = Project.current_project.executable(f'{self.name}-{Path(test).stem}')
+            exe = current_project().executable(f'{self.name}-{Path(test).stem}')
             exe.sources = test
         exe.install = False
         self._tests.add(exe)
@@ -147,16 +147,16 @@ class Library(Target):
 
     @tests_backend.setter
     def tests_backend(self, backend: str):
-        from . import Project
-        Project.current_project.build_requires = backend
+        from . import current_project
+        current_project().build_requires = backend
         self._tests_backend = backend
         for test in self.tests:
             test.link_libraries = self.tests_backend
 
     def test(self):
-        from . import Project
+        from . import current_project
         for test in self.tests:
-            Project.current_project.build(test.name)
+            current_project().build(test.name)
 
         for test in self.tests:
             test.run()

@@ -63,7 +63,7 @@ def _get_logger(obj, ident):
 
 
 from .cli import cli
-from .project import Project
+from .project import Project, current_project, root_project
 from .target import Target
 from .executable import Executable
 from .library import Library

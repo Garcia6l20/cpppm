@@ -1,10 +1,10 @@
 from conans import ConanFile as ConanConanFile
 from conans import tools
-from cpppm import Project
+from cpppm import Project, root_project
 
 
 class ConanFile(ConanConanFile):
-    project: Project = Project.root_project
+    project: Project = root_project()
 
     name = project.package_name
     version = project.version
