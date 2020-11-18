@@ -41,11 +41,15 @@ class Library(Target):
         return 'add_library'
 
     @property
-    def lib_path(self) -> Path:
-        return self._lib_path / self.library
+    def lib_path(self) -> Union[Path, None]:
+        if self.is_header_only:
+            return None
+        return self._lib_path / self.library if self._lib_path else None
 
     @property
-    def bin_path(self) -> Path:
+    def bin_path(self) -> Union[Path, None]:
+        if self.is_header_only:
+            return None
         if platform.system() == 'Windows':
             return self._bin_path / self.library
         else:
@@ -102,17 +106,10 @@ class Library(Target):
     def tests(self) -> set:
         return self._tests
 
-    def build(self, force=False):
-        libraries, library_paths, include_paths, definitions = self.build_deps(force=force)
-
-        if self.is_header_only:
-            return
-
-        objs = self.cc.compile(self.compile_sources.absolute(), self.build_path,
-                               include_paths=[self.source_path, *self.include_paths.absolute(), *include_paths],
-                               definitions=definitions, force=force)
+    def final_build_step(self, objs, library_paths, libraries):
         self.bin_path.parent.mkdir(exist_ok=True, parents=True)
-        self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)
+        self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path, *library_paths],
+                             libraries=libraries)
 
     def _add_test(self, test):
         from . import Project, Executable

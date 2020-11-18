@@ -115,14 +115,28 @@ class Target:
         raise NotImplementedError
 
     @abstractmethod
-    def build(self, force=False):
+    def final_build_step(self, objs, library_paths, libraries):
         raise NotImplementedError
 
-    def build_deps(self, force=False) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
+    def build(self, force=False):
+        libraries, library_paths, include_paths, definitions, outdated = self.build_deps(force=force)
+
+        outdated, objs = self.cc.compile(self.compile_sources.absolute(), self.build_path,
+                                         include_paths=[self.source_path, *self.include_paths.absolute(),
+                                                        *include_paths],
+                                         definitions=definitions, force=force or outdated)
+        if outdated or (self.bin_path and not self.bin_path.exists()):
+            self.final_build_step(objs, [self._lib_path, *library_paths], libraries)
+            return True
+        else:
+            return False
+
+    def build_deps(self, force=False) -> Tuple[Set[str], Set[str], Set[str], Set[str], bool]:
         libraries = set()
         library_paths = set()
         include_paths = set()
         definitions = set()
+        built = False
 
         include_paths.add(self.build_path)
 
@@ -136,7 +150,7 @@ class Target:
             if isinstance(lib, Library):
                 if not lib.is_header_only:
                     libraries.add(lib.name)
-                    lib.build(force=force)
+                    built = lib.build(force=force)
             else:
                 assert isinstance(lib, str)
                 from cpppm import Project
@@ -149,7 +163,7 @@ class Target:
                 for definition in Project.current_project.conan_defines(lib):
                     definitions.add(definition)
 
-        return libraries, library_paths, include_paths, definitions
+        return libraries, library_paths, include_paths, definitions, built
 
     @property
     @abstractmethod

@@ -21,6 +21,7 @@ class Compiler(Runner):
 
     def compile(self, sources, output, *args, force=False, pic=True, include_paths=None, definitions=None):
         output = Path(output)
+        built = False
         assert output.is_dir()
         opts = ['-c']
         if pic:
@@ -36,11 +37,12 @@ class Compiler(Runner):
             if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime):
                 try:
                     self.run(*opts, *args, str(source), '-o', str(out))
+                    built = True
                 except ProcessError as err:
                     raise CompileError(err)
             else:
                 self._logger.info(f'object {out} is up-to-date')
-        return objs
+        return built, objs
 
     @staticmethod
     def _make_link_args(library_paths=None, libraries=None):
