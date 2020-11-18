@@ -24,12 +24,12 @@ class Executable(Target):
     def executable_path(self) -> Path:
         return self._bin_path / self.binary
 
-    def build(self):
-        libraries, library_paths, include_paths, definitions = self.build_deps()
+    def build(self, force=False):
+        libraries, library_paths, include_paths, definitions = self.build_deps(force=force)
 
         objs = self.cc.compile(self.compile_sources, self.build_path,
                                include_paths=[self.source_path, *self.include_paths, *include_paths],
-                               definitions=definitions)
+                               definitions=definitions, force=force)
         self.bin_path.parent.mkdir(exist_ok=True, parents=True)
         self.cc.link(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)
 

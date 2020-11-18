@@ -1,7 +1,7 @@
 import platform
 import re
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Union
 
 from .target import Target
 
@@ -51,7 +51,7 @@ class Library(Target):
             return self._lib_path / self.library
 
     @property
-    def library(self) -> str:
+    def library(self) -> Union[str, None]:
         if self.is_header_only:
             return None
         elif platform.system() == 'Linux':
@@ -62,7 +62,7 @@ class Library(Target):
             raise NotImplementedError  # TODO
 
     @property
-    def binary(self) -> str:
+    def binary(self) -> Union[str, None]:
         if self.is_header_only:
             return None
         elif platform.system() == 'Linux':
@@ -101,15 +101,15 @@ class Library(Target):
     def tests(self) -> set:
         return self._tests
 
-    def build(self):
-        libraries, library_paths, include_paths, definitions = self.build_deps()
+    def build(self, force=False):
+        libraries, library_paths, include_paths, definitions = self.build_deps(force=force)
 
         if self.is_header_only:
             return
 
         objs = self.cc.compile(self.compile_sources, self.build_path,
                                include_paths=[self.source_path, *self.include_paths, *include_paths],
-                               definitions=definitions)
+                               definitions=definitions, force=force)
         self.bin_path.parent.mkdir(exist_ok=True, parents=True)
         self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)
 

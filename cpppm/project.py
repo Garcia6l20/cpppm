@@ -311,7 +311,7 @@ class Project:
     def _cmake_runner(self):
         return Runner("cmake", self.build_path)
 
-    def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
+    def build(self, target: Union[str, Target] = None, jobs: int = None, force=False) -> int:
         if not target:
             t = self.main_target
         else:
@@ -319,9 +319,9 @@ class Project:
 
         if not t:
             for subproj in self.subprojects:
-                subproj.build()
+                subproj.build(jobs=jobs, force=force)
         else:
-            t.build()
+            t.build(force=force)
         return 0
 
     def run(self, target_name: str, *args):
@@ -432,4 +432,3 @@ class Project:
         conan = get_conan()
         conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder,
                      options=[f'{k}={v}' for k, v in self.requires_options.items()])
-

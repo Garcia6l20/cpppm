@@ -115,10 +115,10 @@ class Target:
         raise NotImplementedError
 
     @abstractmethod
-    def build(self):
+    def build(self, force=False):
         raise NotImplementedError
 
-    def build_deps(self) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
+    def build_deps(self, force=False) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
         libraries = set()
         library_paths = set()
         include_paths = set()
@@ -136,7 +136,7 @@ class Target:
             if isinstance(lib, Library):
                 if not lib.is_header_only:
                     libraries.add(lib.name)
-                    lib.build()
+                    lib.build(force=force)
             else:
                 assert isinstance(lib, str)
                 from cpppm import Project
