@@ -1,7 +1,7 @@
 import shutil
 import os
 from pathlib import Path
-from typing import Union
+from typing import Union, Dict
 
 from cpppm.utils.runner import Runner, ProcessError
 
@@ -19,24 +19,26 @@ class Compiler(Runner):
     def on_cmd(self, cmd):
         self.commands.append(cmd)
 
-    def compile(self, sources, output, *args, force=False, pic=True, include_paths=None, definitions=None):
+    def compile(self, sources, output, data, force=False, pic=True):
         output = Path(output)
         built = False
         assert output.is_dir()
-        opts = ['-c']
+        opts = {'-c'}
         if pic:
-            opts.append('-fPIC')
-        if include_paths:
-            opts.extend([f'-I{str(path)}' for path in include_paths])
-        if definitions:
-            opts.extend([f'-D{definition}' for definition in definitions])
+            opts.add('-fPIC')
+        if 'include_paths' in data:
+            opts.update({f'-I{str(path)}' for path in data['include_paths']})
+        if 'compile_definitions' in data:
+            opts.update({f'-D{definition}' for definition in data['compile_definitions']})
+        if 'compile_options' in data:
+            opts.update(data['compile_options'])
         objs = []
         for source in sources:
             out = output / source.with_suffix('.o').name
             objs.append(out)
             if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime):
                 try:
-                    self.run(*opts, *args, str(source), '-o', str(out))
+                    self.run(*opts, str(source), '-o', str(out))
                     built = True
                 except ProcessError as err:
                     raise CompileError(err)
@@ -45,20 +47,20 @@ class Compiler(Runner):
         return built, objs
 
     @staticmethod
-    def _make_link_args(library_paths=None, libraries=None):
+    def _make_link_args(data: Dict):
         args = []
-        if library_paths:
-            args.extend([f'-L{str(path)}' for path in library_paths])
-        if libraries:
-            args.extend([f'-l{":" if "." in Path(lib).suffix else ""}{str(lib)}' for lib in libraries])
+        if 'library_paths' in data:
+            args.extend({f'-L{str(path)}' for path in data['library_paths']})
+        if 'libraries' in data:
+            args.extend({f'-l{":" if "." in Path(lib).suffix else ""}{str(lib)}' for lib in data['libraries']})
         return args
 
-    def make_library(self, objects, output, library_paths=None, libraries=None):
+    def make_library(self, objects, output, data):
         output = output if isinstance(output, Path) else Path(output)
         shared = output.suffix == '.so'
         if shared:
             try:
-                link_args = self._make_link_args(library_paths, libraries)
+                link_args = self._make_link_args(data)
                 self.run('-shared', *link_args, *[str(o) for o in objects], '-o', str(output))
             except ProcessError as err:
                 raise CompileError(err)
@@ -69,17 +71,16 @@ class Compiler(Runner):
             except ProcessError as err:
                 raise CompileError(err)
 
-    def link(self, objects, output, *args, library_paths=None, libraries=None):
-        link_args = self._make_link_args(library_paths, libraries)
+    def link(self, objects, output, data):
+        link_args = self._make_link_args(data)
         try:
             output.parent.mkdir(parents=True, exist_ok=True)
-            self.run(*[str(o) for o in objects], *link_args, *args, '-o', str(output))
+            self.run(*[str(o) for o in objects], *link_args, '-o', str(output))
         except ProcessError as err:
             raise CompileError(err)
 
 
 def get_compiler(name: Union[str, Path] = None):
-    exe = None
     if not name:
         cc = os.getenv('CC') or 'cc'
         exe = shutil.which(cc)

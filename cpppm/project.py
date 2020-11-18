@@ -268,12 +268,21 @@ class Project:
     def conan_library_paths(self, pkg_name):
         return self._conan_paths(pkg_name, 'libdirs')
 
-    def conan_link_libraries(self, pkg_name):
-        infos = self.conan_infos(pkg_name)
-        if infos and 'libs' in infos:
-            return infos['libs']
-        else:
-            return []
+    def conan_link_libraries(self, pkg_name, infos=None):
+        infos = infos or self.conan_infos(pkg_name)
+        system_libs = []
+        libs = []
+        if infos:
+            if 'libs' in infos:
+                libs.extend(infos['libs'])
+            if 'system_libs' in infos:
+                system_libs.extend(infos['system_libs'])
+            if 'components' in infos:
+                for infos in infos['components'].values():
+                    comp_sys_libs, comp_libs = self.conan_link_libraries(pkg_name, infos)
+                    system_libs.extend(comp_sys_libs)
+                    libs.extend(comp_libs)
+        return system_libs, libs
 
     def conan_include_paths(self, pkg_name):
         return self._conan_paths(pkg_name, 'includedirs')

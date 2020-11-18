@@ -106,10 +106,15 @@ class Library(Target):
     def tests(self) -> set:
         return self._tests
 
-    def final_build_step(self, objs, library_paths, libraries):
+    def final_build_step(self, objs, data):
         self.bin_path.parent.mkdir(exist_ok=True, parents=True)
-        self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path, *library_paths],
-                             libraries=libraries)
+        self.cc.make_library(objs, self.bin_path, data)
+
+    def build(self, force=False):
+        if self.is_header_only:
+            return super(Library, self).build_deps(force=force)
+        else:
+            return super(Library, self).build(force=force)
 
     def _add_test(self, test):
         from . import Project, Executable

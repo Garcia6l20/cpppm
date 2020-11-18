@@ -24,9 +24,9 @@ class Executable(Target):
     def executable_path(self) -> Path:
         return self._bin_path / self.binary
 
-    def final_build_step(self, objs, library_paths, libraries):
+    def final_build_step(self, objs, data):
         self.bin_path.parent.mkdir(exist_ok=True, parents=True)
-        self.cc.link(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)
+        self.cc.link(objs, self.bin_path, data)
 
     def run(self, *args, working_directory=None):
         self.build()

@@ -22,21 +22,5 @@ def config_generator(generator: Executable):
 
 exe.dependencies = config_generator
 
-
-@events.on_configure(exe, exe)
-def configure(exe):
-    print(f'==> on_configure {exe.name}')
-
-
-@events.on_prebuild(exe, exe)
-def prebuild(exe):
-    print(f'==> on_prebuild  {exe.name}')
-
-
-@events.on_postbuild(exe, exe)
-def postbuild(exe):
-    print(f'==> on_postbuild {exe.name}')
-
-
 if __name__ == '__main__':
     main()

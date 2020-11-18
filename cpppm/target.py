@@ -2,14 +2,13 @@ import copy
 import re
 from abc import abstractmethod
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Dict, Union
 
 from .utils.decorators import list_property, dependencies_property
 from .utils.pathlist import PathList
 
 
 class Target:
-
     install = True
 
     def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
@@ -26,9 +25,9 @@ class Target:
         self._dependencies = PathList(build_path)
         self._include_dirs = PathList(source_path)
         self._subdirs = PathList(build_path)
-        self._link_libraries = []
-        self._compile_options = []
-        self._compile_definitions = []
+        self._link_libraries = set()
+        self._compile_options = set()
+        self._compile_definitions = set()
         self.events: List[Event] = []
 
         if 'install' in kwargs:
@@ -70,8 +69,12 @@ class Target:
         return self._build_path
 
     @property
-    def bin_path(self) -> Path:
+    def bin_path(self) -> Union[Path, None]:
         return self._bin_path / self.binary
+
+    @property
+    def lib_path(self) -> Union[Path, None]:
+        return None
 
     @list_property
     def sources(self) -> PathList:
@@ -98,15 +101,15 @@ class Target:
         return self._subdirs
 
     @list_property
-    def link_libraries(self) -> list:
+    def link_libraries(self) -> set:
         return self._link_libraries
 
     @list_property
-    def compile_options(self) -> list:
+    def compile_options(self) -> set:
         return self._compile_options
 
     @list_property
-    def compile_definitions(self) -> list:
+    def compile_definitions(self) -> set:
         return self._compile_definitions
 
     @property
@@ -115,30 +118,31 @@ class Target:
         raise NotImplementedError
 
     @abstractmethod
-    def final_build_step(self, objs, library_paths, libraries):
+    def final_build_step(self, objs, data):
         raise NotImplementedError
 
     def build(self, force=False):
-        libraries, library_paths, include_paths, definitions, outdated = self.build_deps(force=force)
+        data, outdated = self.build_deps(force=force)
+        data['include_paths'].update({self.source_path, *self.include_paths.absolute()})
 
-        outdated, objs = self.cc.compile(self.compile_sources.absolute(), self.build_path,
-                                         include_paths=[self.source_path, *self.include_paths.absolute(),
-                                                        *include_paths],
-                                         definitions=definitions, force=force or outdated)
-        if outdated or (self.bin_path and not self.bin_path.exists()):
-            self.final_build_step(objs, [self._lib_path, *library_paths], libraries)
-            return True
+        outdated, objs = self.cc.compile(self.compile_sources.absolute(), self.build_path, data,
+                                         force=force or outdated)
+        if outdated or (self.bin_path and not self.bin_path.exists()) or (self.lib_path and not self.lib_path.exists()):
+            self.final_build_step(objs, data)
+            return data, True
         else:
-            return False
+            return data, False
 
-    def build_deps(self, force=False) -> Tuple[Set[str], Set[str], Set[str], Set[str], bool]:
-        libraries = set()
-        library_paths = set()
-        include_paths = set()
-        definitions = set()
+    def build_deps(self, force=False) -> Tuple[Dict, bool]:
+        data = {
+            'libraries': set(),
+            'library_paths': set(),
+            'include_paths': {str(self.build_path)},
+            'compile_definitions': {*self.compile_definitions},
+            'compile_options': {*self.compile_options},
+        }
+
         built = False
-
-        include_paths.add(self.build_path)
 
         from .events import generator
         for evt in self._dependencies.events:
@@ -149,21 +153,30 @@ class Target:
             from cpppm import Library
             if isinstance(lib, Library):
                 if not lib.is_header_only:
-                    libraries.add(lib.name)
-                    built = lib.build(force=force)
+                    p = lib.lib_path
+                    data['libraries'].add(p.name)
+                    data['library_paths'].add(str(p.parent))
+                lib_data, built = lib.build(force=force)
+                for k, v in lib_data.items():
+                    data[k].update(v)
             else:
                 assert isinstance(lib, str)
+                if lib == 'spdlog':
+                    pass
                 from cpppm import Project
                 for path in Project.current_project.conan_library_paths(lib):
-                    library_paths.add(path)
+                    data['library_paths'].add(path)
                 for path in Project.current_project.conan_include_paths(lib):
-                    include_paths.add(path)
-                for conan_lib in Project.current_project.conan_link_libraries(lib):
-                    libraries.add(conan_lib)
+                    data['include_paths'].add(path)
+                sys_libs, libs = Project.current_project.conan_link_libraries(lib)
+                for conan_lib in libs:
+                    data['libraries'].add(conan_lib)
+                for conan_lib in sys_libs:
+                    data['libraries'].add(conan_lib)
                 for definition in Project.current_project.conan_defines(lib):
-                    definitions.add(definition)
+                    data['compile_definitions'].add(definition)
 
-        return libraries, library_paths, include_paths, definitions, built
+        return data, built
 
     @property
     @abstractmethod
