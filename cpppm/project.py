@@ -1,16 +1,12 @@
-import hashlib
 import importlib.util
 import inspect
-import os
 import re
 import shutil
-import sys
+
 from pathlib import Path
 from typing import List, Union, cast, Any, Dict, Optional, Type
 
-from conans.client.recorder.action_recorder import ActionRecorder
 from conans.model.requires import ConanFileReference
-from cpppm.layout import Layout, DefaultProjectLayout, DefaultDistLayout, LayoutConverter, UnmappedToLayoutError
 
 from . import _jenv, _get_logger, _get_build_path, get_conan, get_settings
 from .build.compiler import get_compiler
@@ -21,7 +17,17 @@ from .utils import Runner
 from .utils.decorators import classproperty, collectable
 
 
+class Installation:
+    libraries = 'lib'
+    archives = 'lib'
+    binaries = 'bin'
+    headers = 'include'
+
+
 class Project:
+
+    installation = Installation()
+
     _root_project: 'Project' = None
     current_project: 'Project' = None
     projects: List['Project'] = []
@@ -30,22 +36,18 @@ class Project:
     __all_targets: List[Target] = []
     _profile = 'default'
 
-    layout: Type[Layout] = DefaultProjectLayout
-    dist_layout: Type[Layout] = DefaultDistLayout
-
     # export commands from CMake (can be used by clangd)
     export_compile_commands = False
     verbose_makefile = False
 
     cc = get_compiler('c++')
 
-    def __init__(self, name, version: str = None, package_name=None, project_layout: Optional[Type[Layout]] = None):
+    def __init__(self, name, version: str = None, package_name=None):
         self.name = name
         if not package_name:
             package_name = name
         self.package_name = package_name
         self.version = version
-        self.layout = project_layout or Project.layout
         self.license = None
         self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
@@ -69,7 +71,6 @@ class Project:
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
             self.build_path = (Project.root_project.build_path / self.build_relative).absolute()
         self.build_path.mkdir(exist_ok=True, parents=True)
-        self.layout.public_includes += [str(self.build_path.as_posix())]
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
@@ -112,13 +113,13 @@ class Project:
         return cls._root_project
 
     @staticmethod
-    def get_project(name):
+    def get_project(name) -> 'Project':
         for project in Project.projects:
             if project.name == name:
                 return project  # already included
 
     @property
-    def default_executable(self):
+    def default_executable(self) -> Executable:
         return self._default_executable or self.main_target
 
     @default_executable.setter
@@ -126,24 +127,20 @@ class Project:
         self._default_executable = exe
 
     @property
-    def source_path(self):
+    def source_path(self) -> Path:
         return self._root_path
 
     @property
-    def bin_path(self):
-        return Project._root_project.build_path.joinpath('bin')
+    def bin_path(self) -> Path:
+        return Project._root_project.build_path / 'bin'
 
     @property
-    def lib_path(self):
-        return Project._root_project.build_path.joinpath('lib')
+    def lib_path(self) -> Path:
+        return Project._root_project.build_path / 'lib'
 
     @property
-    def subprojects(self):
+    def subprojects(self) -> List['Project']:
         return self._subprojects
-
-    @property
-    def dist_converter(self):
-        return LayoutConverter(self.layout, self.dist_layout)
 
     def _target_paths(self, root: str) -> [Path, Path]:
         root = Path(root) if root is not None else self.source_path
@@ -255,7 +252,7 @@ class Project:
         settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
 
         self._conan_infos = conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
-                      settings=settings, build=["outdated"], update=True)
+                                          settings=settings, build=["outdated"], update=True)
 
     def conan_infos(self, pkg_name):
         for installed in self._conan_infos['installed']:
@@ -376,6 +373,8 @@ class Project:
         setattr(self, func.__name__, func)
 
     def install(self, destination: Union[str, Path]):
+        destination = Path(destination)
+
         logger = self._logger
 
         def _copy(self: Path, target: Path):
@@ -386,39 +385,20 @@ class Project:
 
         Path.copy = _copy
 
-        conv = self.dist_converter
-        conv.anchor = destination
-
-        def do_install(item):
-            if isinstance(item, tuple):
-                item[0].copy(item[1].parent)
-            else:
-                for src, dst in item:
-                    src.copy(dst.parent)
-
         # copy executables
         for exe in self._executables:
             exe.build()
-            do_install(conv(exe.bin_path))
+            exe.bin_path.copy(destination / self.installation.binaries)
 
         # copy libraries/headers
         for lib in self._libraries:
             lib.build()
             if lib.binary:
-                do_install(conv(lib.bin_path))
+                lib.bin_path.copy(destination / self.installation.binaries)
             if lib.library:
-                do_install(conv(lib.lib_path))
-
-        try:
-            for lib in self._libraries:
-                do_install(conv(lib.public_headers))
-            # do_install(conv(self.build_modules))
-        except UnmappedToLayoutError as err:
-            raise UnmappedToLayoutError(err.item,
-                                        f'You are trying to install {err.item} '
-                                        'but is not defined in the project layout, '
-                                        'you have to extend the default layout with your own paths '
-                                        f'(during installation of {self.name})')
+                lib.lib_path.copy(destination / self.installation.libraries)
+            for header in lib.public_headers.absolute():
+                header.copy(destination / self.installation.headers)
 
         # subprojects
         for project in self.subprojects:

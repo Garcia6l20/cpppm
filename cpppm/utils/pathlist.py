@@ -25,24 +25,18 @@ class PathList:
             if re.match(pattern, str(path)):
                 self.paths.remove(path)
 
-    def __adjust__(self, path: Path) -> Path:
-        if not isinstance(path, Path):
-            path = Path(path)
-        if not path.exists() and (self.root / path).exists():
-            path = self.root / path
-        if not path.is_absolute():
-            path = self.root / path
-        return path.absolute()
-
     def append(self, obj) -> None:
         if isinstance(obj, (str, Path)):
-            self.paths.append(self.__adjust__(obj))
+            self.paths.append(Path(obj))
         elif hasattr(obj, 'event'):
             self.events.append(obj)
 
     def extend(self, paths: Iterable[Path]):
         for p in paths:
             self.append(p)
+
+    def absolute(self) -> List[Path]:
+        return [self.root / path for path in self]
 
     def __len__(self):
         return self.paths.__len__()

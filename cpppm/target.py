@@ -1,9 +1,9 @@
+import copy
 import re
 from abc import abstractmethod
 from pathlib import Path
 from typing import List, Set, Tuple
 
-from .build.compiler import get_compiler
 from .utils.decorators import list_property, dependencies_property
 from .utils.pathlist import PathList
 
@@ -55,7 +55,7 @@ class Target:
     @property
     def compile_sources(self) -> PathList:
         pattern = self.header_pattern
-        out: List[Path] = []
+        out = PathList(self.source_path)
         for source in self.sources:
             if not re.match(pattern, str(source)):
                 out.append(source)
@@ -87,7 +87,7 @@ class Target:
 
     @property
     def include_paths(self):
-        paths = self._include_dirs.paths
+        paths = copy.deepcopy(self._include_dirs)
         for lib in self.link_libraries:
             if isinstance(lib, Target):
                 paths.extend(lib.include_paths)

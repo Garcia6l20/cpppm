@@ -1,9 +1,10 @@
 import platform
 import re
 from pathlib import Path
-from typing import List, Set, Union
+from typing import Set, Union
 
 from .target import Target
+from .utils.pathlist import PathList
 
 
 class Library(Target):
@@ -13,7 +14,7 @@ class Library(Target):
         from . import Executable
         super().__init__(name, source_path, build_path, **kwargs)
         self.export_header = None
-        self._public_pattern: Set[str] = {r'.*/include/.+'}
+        self._public_pattern: Set[str] = {r'(.*/)?include/.+'}
         self._tests: Set[Executable] = set()
         self._tests_backend: str = None
 
@@ -66,7 +67,7 @@ class Library(Target):
         if self.is_header_only:
             return None
         elif platform.system() == 'Linux':
-            return None if self.static else 'lib' + self.name + '.so'
+            return None
         elif platform.system() == 'Windows':
             return None if self.static else self.name + '.dll'
         else:
@@ -81,8 +82,8 @@ class Library(Target):
         return True
 
     @property
-    def public_headers(self) -> List[Path]:
-        out: List[Path] = []
+    def public_headers(self) -> PathList:
+        out = PathList(self.source_path)
         pattern = self.public_pattern
         for header in self.headers:
             if re.match(pattern, str(header)):
@@ -107,8 +108,8 @@ class Library(Target):
         if self.is_header_only:
             return
 
-        objs = self.cc.compile(self.compile_sources, self.build_path,
-                               include_paths=[self.source_path, *self.include_paths, *include_paths],
+        objs = self.cc.compile(self.compile_sources.absolute(), self.build_path,
+                               include_paths=[self.source_path, *self.include_paths.absolute(), *include_paths],
                                definitions=definitions, force=force)
         self.bin_path.parent.mkdir(exist_ok=True, parents=True)
         self.cc.make_library(objs, self.bin_path, library_paths=[self._lib_path, *library_paths], libraries=libraries)

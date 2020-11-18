@@ -1,15 +1,12 @@
 import logging
 from pathlib import Path
 
-from colorama import Fore
-
 from conans.client.conan_api import Conan
 from conans.client.conf.detect import detect_defaults_settings
-from jinja2 import Environment, PackageLoader
-
 from conans.util.conan_v2_mode import CONAN_V2_MODE_ENVVAR
 
-import sys
+from jinja2 import Environment, PackageLoader
+
 import os
 
 logging.basicConfig(level=logging.INFO)

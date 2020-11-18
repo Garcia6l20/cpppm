@@ -20,7 +20,6 @@ class Compiler(Runner):
         self.commands.append(cmd)
 
     def compile(self, sources, output, *args, force=False, pic=True, include_paths=None, definitions=None):
-        sources = [Path(src) for src in sources] if isinstance(sources, list) else [Path(sources)]
         output = Path(output)
         assert output.is_dir()
         opts = ['-c']
