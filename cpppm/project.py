@@ -4,7 +4,7 @@ import re
 import shutil
 
 from pathlib import Path
-from typing import List, Union, cast, Any, Dict, Optional, Type
+from typing import List, Union, cast, Any, Dict, Optional, Type, Set
 
 from conans.model.requires import ConanFileReference
 
@@ -30,10 +30,10 @@ class Project:
 
     _root_project: 'Project' = None
     current_project: 'Project' = None
-    projects: List['Project'] = []
+    projects: Set['Project'] = set()
     main_target: Target = None
     build_path: Path = None
-    __all_targets: List[Target] = []
+    __all_targets: Set[Target] = set()
     _profile = 'default'
 
     # export commands from CMake (can be used by clangd)
@@ -75,14 +75,14 @@ class Project:
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
 
-        self._libraries: List[Library] = []
-        self._executables: List[Executable] = []
-        self._requires: List[str] = list()
-        self._build_requires: List[str] = list()
-        self._settings: List[str, Any] = {"os", "compiler", "build_type", "arch"}
+        self._libraries: Set[Library] = set()
+        self._executables: Set[Executable] = set()
+        self._requires: Set[str] = set()
+        self._build_requires: Set[str] = set()
+        self._settings: Set[str, Any] = {"os", "compiler", "build_type", "arch"}
         self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
-        self._build_modules: List[str] = []
+        self._build_modules: Set[str] = set()
         self._requires_options: Dict[str, Any] = dict()
 
         self._default_executable = None
@@ -92,9 +92,9 @@ class Project:
         self.test_folder = None
 
         self.generators = []
-        self._subprojects: List[Project] = list()
+        self._subprojects: Set[Project] = set()
 
-        Project.projects.append(self)
+        Project.projects.add(self)
         Project.current_project = self
 
     @classproperty
@@ -161,8 +161,8 @@ class Project:
     def executable(self, name, root: str = None, **kwargs) -> Executable:
         """Add an executable to the project"""
         executable = Executable(name, *self._target_paths(root), **kwargs)
-        self._executables.append(executable)
-        Project.__all_targets.append(executable)
+        self._executables.add(executable)
+        Project.__all_targets.add(executable)
         return executable
 
     def main_library(self, root: str = None, **kwargs) -> Library:
@@ -175,14 +175,14 @@ class Project:
     def library(self, name, root: str = None, **kwargs) -> Library:
         """Add a library to the project"""
         library = Library(name, *self._target_paths(root), **kwargs)
-        self._libraries.append(library)
-        Project.__all_targets.append(library)
+        self._libraries.add(library)
+        Project.__all_targets.add(library)
         return library
 
     @property
-    def targets(self) -> List[Target]:
-        targets: List[Target] = self._libraries.copy()
-        targets.extend(self._executables)
+    def targets(self) -> Set[Target]:
+        targets: Set[Target] = self._libraries.copy()
+        targets.update(self._executables)
         return targets
 
     @staticmethod
@@ -366,7 +366,7 @@ class Project:
         spec.loader.exec_module(module)
         subproject = module.project
         Project.current_project = self
-        self._subprojects.append(subproject)
+        self._subprojects.add(subproject)
         return subproject
 
     def set_event(self, func):
