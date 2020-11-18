@@ -5,8 +5,7 @@ from typing import Iterable, List
 
 
 class PathList:
-    def __init__(self, root: Path, paths: List[Path] = None):
-        super().__init__()
+    def __init__(self, root: Path, *paths):
         self.root = root.resolve()
         self.paths = []
         self.events = []

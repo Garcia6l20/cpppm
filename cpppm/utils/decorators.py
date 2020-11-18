@@ -4,6 +4,8 @@ from functools import wraps
 from pathlib import Path
 from typing import Callable, List, Set, Union, Mapping, Dict
 
+from cpppm.utils.types import type_dir
+
 
 def working_directory(cwd: Path, env: Dict = None, create=True):
     def decorator(func):
@@ -69,20 +71,37 @@ class classproperty(property):
         return classmethod(self.fget).__get__(None, owner)()
 
 
+class CollectError(RuntimeError):
+    pass
+
+
 class collectable_property(list_property):
-    def __init__(self, fget):
+
+    def __init__(self, fget, rget, permissive):
         super().__init__(fget)
-        self.rget = None
         self.fget = fget
+        self.rget = rget
+        self.permissive = permissive
 
     def __get__(self, obj, obj_type):
+
+        # ensure collected object has the recursive property
+        found = False
+        for att in type_dir(obj_type).values():
+            if hasattr(att, 'rget') and att.rget == self.rget:
+                found = True
+                break
+        if not found:
+            if self.permissive:
+                return None
+            raise CollectError(f'Collecting unexpected recursive type {obj_type!r}')
         collected = self.fget(obj)
-        collected = type(collected)(collected)
-        assert type(collected) != tuple
+        # collected = type(collected)(collected)
         subs = self.rget(obj) if callable(self.rget) else self.rget.__get__(obj, type(obj))
         for sub in subs:
-            assert type(sub) == obj_type
             prop = self.__get__(sub, type(sub))
+            if prop is None:
+                continue
             if isinstance(collected, dict) or isinstance(collected, set):
                 collected.update(prop)
             else:
@@ -95,10 +114,8 @@ class collectable_property(list_property):
         return self
 
 
-def collectable(recurse):
+def collectable(recurse, permissive=False):
     def decorator(fget):
-        prop = collectable_property(fget)
-        prop.recurse(recurse)
-        return prop
+        return collectable_property(fget, recurse, permissive)
 
     return decorator

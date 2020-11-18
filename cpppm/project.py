@@ -42,7 +42,7 @@ class Project:
 
     cc = get_compiler('c++')
 
-    def __init__(self, name, version: str = None, package_name=None):
+    def __init__(self, name, version: str = None, package_name=None, build_path=None):
         self.name = name
         if not package_name:
             package_name = name
@@ -61,7 +61,7 @@ class Project:
 
         # adjust output dir
         if not Project.root_project:
-            self.build_path = _get_build_path(self.source_path)
+            self.build_path = build_path or _get_build_path(self.source_path)
             Project._root_project = self
             Project.project_settings = get_settings()
             self.build_relative = '.'
@@ -257,6 +257,14 @@ class Project:
 
         self._conan_infos = conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
                                           settings=settings, build=["outdated"], update=True)
+
+        from cpppm.conans import PackageLibrary
+        for target in Project.__all_targets:
+            for lib in target.link_libraries:
+                if isinstance(lib, str):
+                    target._link_libraries.remove(lib)
+                    target._link_libraries.add(PackageLibrary(lib, self.conan_infos(lib)))
+
 
     def conan_infos(self, pkg_name):
         for installed in self._conan_infos['installed']:

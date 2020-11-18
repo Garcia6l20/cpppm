@@ -4,7 +4,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import List, Set, Tuple, Dict, Union
 
-from .utils.decorators import list_property, dependencies_property
+from .utils.decorators import list_property, dependencies_property, collectable
 from .utils.pathlist import PathList
 
 
@@ -27,7 +27,7 @@ class Target:
         self._subdirs = PathList(build_path)
         self._link_libraries = set()
         self._compile_options = set()
-        self._compile_definitions = set()
+        self._compile_definitions = dict()
         self.events: List[Event] = []
 
         if 'install' in kwargs:
@@ -84,10 +84,6 @@ class Target:
     def dependencies(self) -> PathList:
         return self._dependencies
 
-    @list_property
-    def include_dirs(self) -> PathList:
-        return self._include_dirs
-
     @property
     def include_paths(self):
         paths = copy.deepcopy(self._include_dirs)
@@ -108,9 +104,13 @@ class Target:
     def compile_options(self) -> set:
         return self._compile_options
 
-    @list_property
+    @collectable(link_libraries, permissive=True)
     def compile_definitions(self) -> set:
         return self._compile_definitions
+
+    @collectable(link_libraries, permissive=True)
+    def include_dirs(self) -> PathList:
+        return self._include_dirs
 
     @property
     @abstractmethod
@@ -134,11 +134,18 @@ class Target:
             return data, False
 
     def build_deps(self, force=False) -> Tuple[Dict, bool]:
+        definitions = set()
+        for k, v in self.compile_definitions.items():
+            if v is not None:
+                definitions.add(f'{k}={v}')
+            else:
+                definitions.add(f'{k}')
+
         data = {
             'libraries': set(),
             'library_paths': set(),
             'include_paths': {str(self.build_path)},
-            'compile_definitions': {*self.compile_definitions},
+            'compile_definitions': definitions,
             'compile_options': {*self.compile_options},
         }
 
