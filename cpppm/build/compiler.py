@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Union, Dict
 
+from cpppm import _get_logger
 from cpppm.utils.runner import Runner, ProcessError
 
 
@@ -14,9 +15,15 @@ class Compiler(Runner):
 
     force = False
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, exe, ccache, *args, **kwargs):
         self.commands = list()
-        super().__init__(*args, recorder=self.on_cmd, **kwargs)
+        if ccache:
+            super().__init__(ccache, args={exe}, recorder=self.on_cmd, **kwargs)
+            self._logger = _get_logger(self, Path(exe).name)
+            self._logger.info('using ccache')
+        else:
+            super().__init__(exe, recorder=self.on_cmd, **kwargs)
+            self._logger = _get_logger(self, Path(exe).name)
 
     def on_cmd(self, cmd):
         self.commands.append(cmd)
@@ -88,6 +95,8 @@ class Compiler(Runner):
 
 
 def get_compiler(name: Union[str, Path] = None):
+    ccache = shutil.which('ccache')
+
     if not name:
         cc = os.getenv('CC') or 'cc'
         exe = shutil.which(cc)
@@ -97,4 +106,4 @@ def get_compiler(name: Union[str, Path] = None):
             exe = cc
         else:
             exe = shutil.which(str(cc))
-    return Compiler(exe)
+    return Compiler(exe, ccache)

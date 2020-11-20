@@ -11,12 +11,13 @@ class ProcessError(RuntimeError):
 
 
 class Runner:
-    def __init__(self, executable, cwd: Path = None, env=None, recorder=None):
+    def __init__(self, executable, cwd: Path = None, env=None, recorder=None, args=None):
         self._logger = _get_logger(self, executable)
         self.executable = str(executable.absolute()) if isinstance(executable, Path) else executable
         self.cwd = cwd
         self.env = env
         self.recorder = recorder
+        self.args = args or {}
 
     def run(self, *args, cwd: Union[str, Path] = None, env: Dict = None):
         if not cwd:
@@ -28,7 +29,7 @@ class Runner:
 
         @working_directory(cwd=Path(cwd), env=env)
         def do_run():
-            tmp = [self.executable, *args]
+            tmp = [self.executable, *self.args, *args]
             self._logger.debug(f'cwd: {Path.cwd()}')
             self._logger.debug(f'cmd: {" ".join(tmp)}')
             if self.recorder:
