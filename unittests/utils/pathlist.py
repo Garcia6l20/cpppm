@@ -1,7 +1,29 @@
+import copy
+import unittest
+
 from pathlib import Path
 
 from cpppm.utils.decorators import list_property
 from cpppm.utils.pathlist import PathList
+
+
+class PathListTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lst = PathList(Path('/tmp'), '1', '2')
+
+    def test_nominal(self):
+        self.assertTrue(self.lst.absolute() == [Path('/tmp/1'), Path('/tmp/2')])
+        lst = copy.deepcopy(self.lst)
+        lst.append(Path('/usr/lib'))
+        print(lst.absolute())
+        self.assertTrue(lst.absolute() == [Path('/tmp/1'), Path('/tmp/2'), Path('/usr/lib')])
+
+    def test_update_path_list(self):
+        lst = copy.deepcopy(self.lst)
+        lst.extend(PathList(Path('/usr'), 'lib'))
+        self.assertTrue(lst.absolute() == [Path('/tmp/1'), Path('/tmp/2'), Path('/usr/lib')])
+
 
 
 class Object:
@@ -41,3 +63,7 @@ def test_pathlist_listproperty_append_iterable_subdir():
     obj.paths = 'hello', 'world'
     assert obj.paths[0].absolute() == datapath / 'hello'
     assert obj.paths[1].absolute() == datapath / 'world'
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -125,7 +125,7 @@ class generator(Event):
             depends = []
         if cwd is None:
             cwd = current_project().build_path
-        super().__init__(EventKind.GENERATOR, PathList(cwd, filepaths), *args, depends=depends, cwd=cwd, **kwargs)
+        super().__init__(EventKind.GENERATOR, PathList(cwd, *filepaths), *args, depends=depends, cwd=cwd, **kwargs)
 
     def __str__(self):
         return super().__str__()

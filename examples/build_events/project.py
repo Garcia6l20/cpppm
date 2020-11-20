@@ -3,7 +3,7 @@ from cpppm import Project, Executable, main, events
 
 project = Project('events')
 project.requires = 'fmt/7.1.2'
-project.requires_options = {'fmt:header_only': True}
+# project.requires_options = {'fmt:header_only': True}
 
 gen = project.executable('gen_date')
 gen.install = False

@@ -7,26 +7,41 @@ from cpppm.utils.pathlist import PathList
 
 
 class PackageInfos:
-    include_dirs = set()
-    lib_dirs = set()
-    libs = set()
-    res_dirs = set()
-    bin_dirs = set()
-    build_dirs = set()
-    defines = set()
-    version = None
-    description = None
-    root = None
 
     def __init__(self, raw):
+
+        self.include_dirs = set()
+        self.lib_dirs = set()
+        self.libs = set()
+        self.res_dirs = set()
+        self.bin_dirs = set()
+        self.build_dirs = set()
+        self.defines = dict()
+
         self._raw = raw
-        self.root = Path(raw['rootpath'])
-        self.version = raw['version']
-        self.description = raw['description']
-        self.load(raw)
-        if 'components' in raw:
-            for comp in raw['components'].values():
+        self.name = self.recipe['name']
+        self._cpp_infos = dict()
+        for d in self.packages:
+            self._cpp_infos.update(d['cpp_info'])
+        self.root = Path(self._cpp_infos['rootpath'])
+        self.version = self._cpp_infos['version']
+        self.description = self._cpp_infos['description']
+        self.load(self._cpp_infos)
+        if 'components' in self._cpp_infos:
+            for comp in self._cpp_infos['components'].values():
                 self.load(comp)
+
+    @property
+    def recipe(self):
+        return self._raw['recipe']
+
+    @property
+    def packages(self):
+        return self._raw['packages']
+
+    @property
+    def deps(self):
+        return self._cpp_infos['public_deps'] if 'public_deps' in self._cpp_infos else {}
 
     def load(self, comp):
         if 'includedirs' in comp:
@@ -35,6 +50,8 @@ class PackageInfos:
             self.lib_dirs.update(comp['libdirs'])
         if 'libs' in comp:
             self.libs.update(comp['libs'])
+        if 'system_libs' in comp:
+            self.libs.update(comp['system_libs'])
         if 'resdirs' in comp:
             self.res_dirs.update(comp['resdirs'])
         if 'bindirs' in comp:
@@ -42,24 +59,31 @@ class PackageInfos:
         if 'builddirs' in comp:
             self.build_dirs.update(comp['builddirs'])
         if 'defines' in comp:
-            self.defines.update(comp['defines'])
+            for definition in comp['defines']:
+                tmp = definition.split('=')
+                self.defines[tmp[0]] = tmp[1] if len(tmp) > 1 else None
 
 
 class PackageLibrary(Library):
 
-    def __init__(self, name, infos, **kwargs):
+    def __init__(self, infos, **kwargs):
         self._infos = PackageInfos(infos)
-        super().__init__(name, self._infos.root, self._infos.root, **kwargs)
+        super().__init__(self._infos.name, self._infos.root, self._infos.root, **kwargs)
+        self.include_dirs = self._infos.include_dirs
+        self.link_libraries = self._infos.libs
+        self.compile_definitions = self._infos.defines
+        self.library_dirs = {self._infos.root / p for p in self._infos.lib_dirs}
 
-    def build(self, force=False):
-        data = {
-            'libraries': self._infos.libs,
-            'library_paths': PathList(self._infos.root, *self._infos.lib_dirs).absolute(),
-            'include_paths': PathList(self._infos.root, *self._infos.include_dirs).absolute(),
-            'compile_definitions': self._infos.defines,
-            'compile_options': set(),  # TODO
-        }
-        return data, False
+    def resolve_deps(self):
+        for dep in self._infos.deps:
+            self.link_libraries = Project._pkg_libraries[dep]
+
+    @property
+    def is_header_only(self):
+        return self.name not in self._infos.libs
+
+    def build(self):
+        return False
 
 
 class ConanFile(ConanConanFile):

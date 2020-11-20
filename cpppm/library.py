@@ -31,16 +31,6 @@ class Library(Target):
         self.static = not value
 
     @property
-    def type(self) -> str:
-        if self.is_header_only:
-            return 'INTERFACE'
-        return 'STATIC' if self.static else 'SHARED'
-
-    @property
-    def command(self) -> str:
-        return 'add_library'
-
-    @property
     def lib_path(self) -> Union[Path, None]:
         if self.is_header_only:
             return None
@@ -97,24 +87,14 @@ class Library(Target):
         return out
 
     @property
-    def public_visibility(self) -> str:
-        if self.is_header_only:
-            return 'INTERFACE'
-        return 'PUBLIC'
-
-    @property
     def tests(self) -> set:
         return self._tests
 
-    def final_build_step(self, objs, data):
-        self.bin_path.parent.mkdir(exist_ok=True, parents=True)
-        self.cc.make_library(objs, self.bin_path, data)
-
-    def build(self, force=False):
+    def build(self):
         if self.is_header_only:
-            return super(Library, self).build_deps(force=force)
+            return super(Library, self).build_deps()
         else:
-            return super(Library, self).build(force=force)
+            return super(Library, self).build()
 
     def _add_test(self, test):
         from . import current_project, Executable

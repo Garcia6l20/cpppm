@@ -26,13 +26,23 @@ class PathList:
 
     def append(self, obj) -> None:
         if isinstance(obj, (str, Path)):
+            if obj in self.paths:
+                return
             self.paths.append(Path(obj))
         elif hasattr(obj, 'event'):
+            if obj in self.events:
+                return
             self.events.append(obj)
+        else:
+            assert False
 
     def extend(self, paths: Iterable[Path]):
-        for p in paths:
-            self.append(p)
+        if isinstance(paths, PathList):
+            for p in paths:
+                self.append(paths.root / p)
+        else:
+            for p in paths:
+                self.append(p)
 
     def absolute(self) -> List[Path]:
         return [self.root / path for path in self]

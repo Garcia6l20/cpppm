@@ -4,7 +4,7 @@ import re
 import shutil
 
 from pathlib import Path
-from typing import List, Union, cast, Any, Dict, Optional, Type, Set
+from typing import List, Union, cast, Any, Dict, Set
 
 from conans.model.requires import ConanFileReference
 
@@ -25,7 +25,6 @@ class Installation:
 
 
 class Project:
-
     installation = Installation()
 
     _root_project: 'Project' = None
@@ -34,6 +33,7 @@ class Project:
     main_target: Target = None
     build_path: Path = None
     __all_targets: Set[Target] = set()
+    _pkg_libraries: Dict[str, 'cpppm.conans.PackageLibrary'] = dict()
     _profile = 'default'
 
     # export commands from CMake (can be used by clangd)
@@ -255,16 +255,27 @@ class Project:
 
         settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
 
-        self._conan_infos = conan.install(str(self.build_path / 'conanfile.txt'), cwd=self.build_path,
-                                          settings=settings, build=["outdated"], update=True)
+        conan_file = str(self.build_path / 'conanfile.txt')
+
+        # infos, conan_file_data = conan.info(conan_file,
+        #                                settings=settings, build=["outdated"], update=True)
+        install_infos = conan.install(conan_file, cwd=self.build_path,
+                                      settings=settings, build=["outdated"], update=True)
 
         from cpppm.conans import PackageLibrary
+
+        for info in install_infos['installed']:
+            if info['recipe']['name'] not in Project._pkg_libraries:
+                pkg_lib = PackageLibrary(info)
+                Project._pkg_libraries[pkg_lib.name] = pkg_lib
+        for pkg_lib in Project._pkg_libraries.values():
+            pkg_lib.resolve_deps()
+
         for target in Project.__all_targets:
             for lib in target.link_libraries:
                 if isinstance(lib, str):
                     target._link_libraries.remove(lib)
-                    target._link_libraries.add(PackageLibrary(lib, self.conan_infos(lib)))
-
+                    target._link_libraries.add(Project._pkg_libraries[lib])
 
     def conan_infos(self, pkg_name):
         for installed in self._conan_infos['installed']:
@@ -329,7 +340,7 @@ class Project:
     def _cmake_runner(self):
         return Runner("cmake", self.build_path)
 
-    def build(self, target: Union[str, Target] = None, jobs: int = None, force=False) -> int:
+    def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
         if not target:
             t = self.main_target
         else:
@@ -337,9 +348,9 @@ class Project:
 
         if not t:
             for subproj in self.subprojects:
-                subproj.build(jobs=jobs, force=force)
+                subproj.build(jobs=jobs)
         else:
-            t.build(force=force)
+            t.build()
         return 0
 
     def run(self, target_name: str, *args):

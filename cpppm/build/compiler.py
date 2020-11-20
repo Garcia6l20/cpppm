@@ -12,6 +12,8 @@ class CompileError(ProcessError):
 
 class Compiler(Runner):
 
+    force = False
+
     def __init__(self, *args, **kwargs):
         self.commands = list()
         super().__init__(*args, recorder=self.on_cmd, **kwargs)
@@ -19,24 +21,31 @@ class Compiler(Runner):
     def on_cmd(self, cmd):
         self.commands.append(cmd)
 
-    def compile(self, sources, output, data, force=False, pic=True):
-        output = Path(output)
+    def compile(self, target: 'cpppm.target.Target', pic=True,
+                force=False):
+        force = force or Compiler.force
+        self._logger.info(f'building {target}')
         built = False
-        assert output.is_dir()
+        output = target.build_path.absolute()
         opts = {'-c'}
         if pic:
             opts.add('-fPIC')
-        if 'include_paths' in data:
-            opts.update({f'-I{str(path)}' for path in data['include_paths']})
-        if 'compile_definitions' in data:
-            opts.update({f'-D{definition}' for definition in data['compile_definitions']})
-        if 'compile_options' in data:
-            opts.update(data['compile_options'])
+
+        opts.update({f'-I{str(path)}' for path in target.include_dirs.absolute()})
+
+        for k, v in target.compile_definitions.items():
+            if v is not None:
+                opts.add(f'-D{k}={v}')
+            else:
+                opts.add(f'-D{k}')
+
+        opts.update(target.compile_options)
         objs = []
-        for source in sources:
+        for source in target.compile_sources.absolute():
             out = output / source.with_suffix('.o').name
             objs.append(out)
             if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime):
+                self._logger.info(f'compiling {out.name}')
                 try:
                     self.run(*opts, str(source), '-o', str(out))
                     built = True
@@ -44,40 +53,38 @@ class Compiler(Runner):
                     raise CompileError(err)
             else:
                 self._logger.info(f'object {out} is up-to-date')
-        return built, objs
 
-    @staticmethod
-    def _make_link_args(data: Dict):
-        args = []
-        if 'library_paths' in data:
-            args.extend({f'-L{str(path)}' for path in data['library_paths']})
-        if 'libraries' in data:
-            args.extend({f'-l{":" if "." in Path(lib).suffix else ""}{str(lib)}' for lib in data['libraries']})
-        return args
-
-    def make_library(self, objects, output, data):
-        output = output if isinstance(output, Path) else Path(output)
-        shared = output.suffix == '.so'
-        if shared:
+        if len(objs):
+            opts = set()
+            if pic:
+                opts.add('-fPIC')
+            output = target.bin_path.absolute()
+            output.parent.mkdir(exist_ok=True, parents=True)
+            opts.update({f'-L{str(d.absolute())}' for d in target.library_dirs})
+            for lib in target._all_libraries():
+                if isinstance(lib, str):
+                    opts.add(f'-l{lib}')
+                elif not lib.is_header_only:
+                    # opts.add(f'-l{":" if "." in lib.bin_path.suffix else ""}{str(lib.bin_path.name)}')
+                    opts.add(f'-l{lib.name}')
             try:
-                link_args = self._make_link_args(data)
-                self.run('-shared', *link_args, *[str(o) for o in objects], '-o', str(output))
+                if str(output).endswith('.so'):
+                    # shared library
+                    self._logger.info(f'creating library {output.name}')
+                    self.run('-shared', *opts, *[str(o) for o in objs], '-o', str(output))
+                elif str(output).endswith('.a'):
+                    # archive
+                    self._logger.info(f'creating archive {output.name}')
+                    exe = Runner(shutil.which('ar'), recorder=self.on_cmd)
+                    exe.run('rcs', str(output), *[str(o) for o in objs])
+                else:
+                    # executable
+                    self._logger.info(f'linking {output.name}')
+                    self.run(*[str(o) for o in objs], *opts, '-o', str(output))
             except ProcessError as err:
                 raise CompileError(err)
-        else:
-            try:
-                exe = Runner(shutil.which('ar'), recorder=self.on_cmd)
-                exe.run('rcs', str(output), *[str(o) for o in objects])
-            except ProcessError as err:
-                raise CompileError(err)
 
-    def link(self, objects, output, data):
-        link_args = self._make_link_args(data)
-        try:
-            output.parent.mkdir(parents=True, exist_ok=True)
-            self.run(*[str(o) for o in objects], *link_args, '-o', str(output))
-        except ProcessError as err:
-            raise CompileError(err)
+        return built
 
 
 def get_compiler(name: Union[str, Path] = None):

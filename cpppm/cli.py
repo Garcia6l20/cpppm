@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from . import _output_dir_option, _logger
+from .build.compiler import Compiler
 from .project import current_project, root_project, Project
 from .library import Library
 
@@ -94,7 +95,8 @@ def build(ctx, force, jobs, target):
     click.echo(f"Build directory: {str(root_project().build_path.absolute())}")
     click.echo(f"Project: {root_project().name}")
     ctx.invoke(configure)
-    rc = root_project().build(target, jobs, force)
+    Compiler.force = force
+    rc = root_project().build(target, jobs)
     if rc != 0:
         click.echo(f'Build failed with return code: {rc}')
         exit(rc)
