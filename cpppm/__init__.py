@@ -17,12 +17,12 @@ _jenv = Environment(loader=PackageLoader('cpppm', 'templates'), extensions=['jin
 
 _output_dir_option = "--out-directory", "-o"
 
+_source_path = None
 __build_path = None
 
 os.environ[CONAN_V2_MODE_ENVVAR] = "1"
 
 __conan = Conan()
-
 
 def get_conan():
     if __conan.app is None:
@@ -43,6 +43,8 @@ def get_settings():
 
 def _get_build_path(source_path):
     global __build_path
+    global _source_path
+    _source_path = Path(source_path)
     if __build_path is None:
         for opt in _output_dir_option:
             import sys
@@ -67,7 +69,6 @@ from .project import Project, current_project, root_project
 from .target import Target
 from .executable import Executable
 from .library import Library
-
 
 def main():
     cli(standalone_mode=False)

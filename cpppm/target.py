@@ -36,11 +36,6 @@ class Target:
             self.install = bool(kwargs['install'])
 
     @property
-    def cc(self):
-        from .project import Project
-        return Project.cc
-
-    @property
     def header_pattern(self) -> str:
         return '|'.join(pattern for pattern in self._header_pattern)
 
@@ -130,7 +125,8 @@ class Target:
 
     def build(self):
         outdated = self.build_deps()
-        return self.cc.compile(self, force=outdated)
+        from cpppm.build.compiler import get_compiler
+        return get_compiler().compile(self, force=outdated)
 
     def build_deps(self) -> bool:
         definitions = set()

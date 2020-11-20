@@ -19,6 +19,8 @@ from .library import Library
               help="Print extra useful infos, and sets CMAKE_VERBOSE_MAKEFILE.")
 @click.option("--clean", "-c", is_flag=True,
               help="Remove all stuff before processing the following command.")
+@click.option("--config", "-C",
+              help="Config name to use.", default='default')
 @click.option("--profile", "-p",
               help="Conan profile to use.")
 @click.option("--setting", "-s", multiple=True,
@@ -26,13 +28,18 @@ from .library import Library
 @click.option("--build-type", "-b", default="Release",
               type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
 @click.pass_context
-def cli(ctx, verbose, out_directory, debug, clean, profile, setting, build_type):
+def cli(ctx, verbose, out_directory, debug, clean, config, profile, setting, build_type):
+    from .config import config as cpppm_config
     if not current_project().is_root:
         return
     if clean:
         out_directory = Path(out_directory) if out_directory else root_project().build_path
         if out_directory.exists():
             shutil.rmtree(out_directory)
+    ctx.obj = cpppm_config
+    if config:
+        cpppm_config.load(config)
+
     root_project().settings = {setting.split('=') for setting in setting}
     Project.build_type = build_type
     current_project().build_path.mkdir(exist_ok=True)
@@ -49,6 +56,7 @@ def cli(ctx, verbose, out_directory, debug, clean, profile, setting, build_type)
 
     if ctx.invoked_subcommand is None:
         ctx.invoke(run)
+
 
 
 @cli.command('__cpppm_event__', hidden=True)
@@ -81,6 +89,36 @@ def configure(ctx):
     """Configures CMake stuff."""
     ctx.invoke(generate)
     root_project().configure()
+
+
+@cli.group('config')
+def config_cmd():
+    pass
+
+
+@config_cmd.command('set')
+@click.argument('items', nargs=-1)
+@click.pass_context
+def config_set(ctx, items):
+    config = ctx.obj
+    config.set(*items)
+    config.save()
+
+
+@config_cmd.command('doc')
+@click.argument('items', nargs=-1)
+@click.pass_context
+def config_doc(ctx, items):
+    config = ctx.obj
+    config.doc(*items)
+
+
+@config_cmd.command('show')
+@click.argument('items', nargs=-1)
+@click.pass_context
+def config_show(ctx, items):
+    config = ctx.obj
+    config.show(*items)
 
 
 @cli.command()

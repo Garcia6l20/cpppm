@@ -10,6 +10,7 @@ from conans.model.requires import ConanFileReference
 
 from . import _jenv, _get_logger, _get_build_path, get_conan, get_settings
 from .build.compiler import get_compiler
+from .config import config
 from .executable import Executable
 from .library import Library
 from .target import Target
@@ -40,8 +41,6 @@ class Project:
     export_compile_commands = False
     verbose_makefile = False
 
-    cc = get_compiler('c++')
-
     def __init__(self, name, version: str = None, package_name=None, build_path=None):
         self.name = name
         if not package_name:
@@ -65,7 +64,7 @@ class Project:
             Project._root_project = self
             Project.project_settings = get_settings()
             self.build_relative = '.'
-
+            config.init(self.source_path)
         else:
             self._root_project = Project._root_project
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
@@ -143,7 +142,7 @@ class Project:
         return Project._root_project.build_path / 'lib'
 
     @property
-    def subprojects(self) -> List['Project']:
+    def subprojects(self) -> Set['Project']:
         return self._subprojects
 
     def _target_paths(self, root: str) -> [Path, Path]:
@@ -254,13 +253,20 @@ class Project:
             }))
 
         settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
+        cc, version = config._conan_compiler
+        settings.append(f'compiler={cc}')
+        settings.append(f'compiler.version={version}')
+        settings.append(f'compiler.libcxx={config.libcxx}')
 
         conan_file = str(self.build_path / 'conanfile.txt')
 
         # infos, conan_file_data = conan.info(conan_file,
         #                                settings=settings, build=["outdated"], update=True)
         install_infos = conan.install(conan_file, cwd=self.build_path,
-                                      settings=settings, build=["outdated"], update=True)
+                                      settings=settings, build=["outdated"], update=True, env={
+                f'CC={config.cc}',
+                f'CXX={config.cxx}',
+            })
 
         from cpppm.conans import PackageLibrary
 

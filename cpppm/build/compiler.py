@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Union, Dict
 
 from cpppm import _get_logger
+from cpppm.config import config
 from cpppm.utils.runner import Runner, ProcessError
 
 
@@ -38,6 +39,8 @@ class Compiler(Runner):
         built = False
         output = target.build_path.absolute()
         opts = {'-c'}
+        if config._conan_compiler[0] == 'clang':
+            opts.add(f'-stdlib={config.libcxx}')
         if pic:
             opts.add('-fPIC')
 
@@ -102,7 +105,7 @@ def get_compiler(name: Union[str, Path] = None):
     ccache = shutil.which('ccache')
 
     if not name:
-        cc = os.getenv('CC') or 'cc'
+        cc = config.cxx
         exe = shutil.which(cc)
     else:
         cc = Path(name)

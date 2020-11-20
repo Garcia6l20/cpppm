@@ -3,7 +3,6 @@ from pathlib import Path
 from conans import ConanFile as ConanConanFile
 from conans import tools
 from cpppm import Project, Library, root_project
-from cpppm.utils.pathlist import PathList
 
 
 class PackageInfos:
