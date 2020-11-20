@@ -128,13 +128,18 @@ def test(ctx, target):
     if target:
         target = root_project().target(target)
         assert isinstance(target, Library)
+        click.secho(f'Running {target} tests', fg='yellow')
         target.test()
     else:
+        tests = set()
         for lib in Project.all:
             if isinstance(lib, Library):
                 for tst in lib.tests:
                     tst.build()
-                    tst.run()
+                    tests.add(tst)
+        for tst in tests:
+            click.secho(f'Running {tst.name} test', fg='yellow')
+            tst.run()
 
 
 @cli.command()

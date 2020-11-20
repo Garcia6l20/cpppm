@@ -30,6 +30,9 @@ class Compiler(Runner):
 
     def compile(self, target: 'cpppm.target.Target', pic=True,
                 force=False):
+        if target._built is not None:
+            return target._built
+
         force = force or Compiler.force
         self._logger.info(f'building {target}')
         built = False
@@ -91,6 +94,7 @@ class Compiler(Runner):
             except ProcessError as err:
                 raise CompileError(err)
 
+        target._built = built
         return built
 
 

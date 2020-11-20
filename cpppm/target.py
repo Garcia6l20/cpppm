@@ -30,6 +30,7 @@ class Target:
         self._compile_options = set()
         self._compile_definitions = dict()
         self.events: List[Event] = []
+        self._built = None
 
         if 'install' in kwargs:
             self.install = bool(kwargs['install'])
