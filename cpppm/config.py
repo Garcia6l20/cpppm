@@ -6,7 +6,6 @@ from . import _source_path
 
 
 class Config:
-
     __docs = {
         'cc': '''C compiler (default: 'cc')''',
         'cxx': '''C++ compiler (default: 'c++')''',
@@ -53,21 +52,29 @@ class Config:
     def load(self, id=None):
         self._id = id or self._id
         path = self._path()
-        if path.exists():
-            for k, v in json.load(path.open('r')).items():
-                setattr(self, k, v)
-            class quiet:
-                def success(self, *args):
-                    pass
-                def error(self, *args):
-                    pass
-                def info(self, *args):
-                    pass
+
+        class quiet:
+            def success(self, *args):
+                pass
+
+            def error(self, *args):
+                pass
+
+            def info(self, *args):
+                pass
+
+        def resolve_compiler():
             compiler, version = _get_compiler_and_version(quiet(), self.cc)
             version = _get_profile_compiler_version(compiler, version, quiet())
             self._conan_compiler = (compiler, version)
+
+        if path.exists():
+            for k, v in json.load(path.open('r')).items():
+                setattr(self, k, v)
+            resolve_compiler()
             return True
         else:
+            resolve_compiler()
             return False
 
     def save(self):
