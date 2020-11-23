@@ -1,7 +1,8 @@
+import hashlib
+import re
 import shutil
-import os
 from pathlib import Path
-from typing import Union, Dict
+from typing import Union
 
 from cpppm import _get_logger
 from cpppm.config import config
@@ -13,8 +14,8 @@ class CompileError(ProcessError):
 
 
 class Compiler(Runner):
-
     force = False
+    _include_pattern = re.compile(r'#include [<"](.+)[>"]')
 
     def __init__(self, exe, ccache, *args, **kwargs):
         self.commands = list()
@@ -29,6 +30,38 @@ class Compiler(Runner):
     def on_cmd(self, cmd):
         self.commands.append(cmd)
 
+    def is_clang(self):
+        return config._conan_compiler[0] in {'clang', 'apple-clang'}
+
+    def source_deps(self, target, source):
+        deps = set()
+        for line in open(source.absolute(), 'r'):
+            for m in re.finditer(Compiler._include_pattern, line):
+                include = m.group(1)
+                for p in target.include_dirs:
+                    fullpath = (p / include)
+                    if fullpath.exists():
+                        deps.add(fullpath)
+        return deps
+
+    def _is_source_outdated(self, target, source, deps):
+        for dep in deps:
+            sha = hashlib.sha1(str(dep).encode())
+            sha.update(str(source.absolute()).encode())
+            timestamp = target.build_path / 'deps' / (sha.hexdigest() + '.ts')
+            if not timestamp.exists() or timestamp.stat().st_mtime < dep.stat().st_mtime:
+                self._logger.debug(f"outdated: {source} (changed: {dep})")
+                return True
+        return False
+
+    def _update_deps_timestamps(self, target, source, deps):
+        for dep in deps:
+            sha = hashlib.sha1(str(dep).encode())
+            sha.update(str(source.absolute()).encode())
+            timestamp = target.build_path / 'deps' / (sha.hexdigest() + '.ts')
+            timestamp.parent.mkdir(exist_ok=True, parents=True)
+            timestamp.touch(exist_ok=True)
+
     def compile(self, target: 'cpppm.target.Target', pic=True,
                 force=False):
         if target._built is not None:
@@ -39,7 +72,7 @@ class Compiler(Runner):
         built = False
         output = target.build_path.absolute()
         opts = {'-c'}
-        if config._conan_compiler[0] == 'clang':
+        if self.is_clang() == 'clang':
             opts.add(f'-stdlib={config.libcxx}')
         if pic:
             opts.add('-fPIC')
@@ -57,10 +90,13 @@ class Compiler(Runner):
         for source in target.compile_sources.absolute():
             out = output / source.with_suffix('.o').name
             objs.append(out)
-            if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime):
+            source_deps = self.source_deps(target, source)
+            if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime) \
+                    or (self._is_source_outdated(target, source, source_deps)):
                 self._logger.info(f'compiling {out.name}')
                 try:
                     self.run(*opts, str(source), '-o', str(out))
+                    self._update_deps_timestamps(target, source, source_deps)
                     built = True
                 except ProcessError as err:
                     raise CompileError(err)

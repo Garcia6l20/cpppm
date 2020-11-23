@@ -264,9 +264,9 @@ class Project:
         #                                settings=settings, build=["outdated"], update=True)
         install_infos = conan.install(conan_file, cwd=self.build_path,
                                       settings=settings, build=["outdated"], update=True, env={
-                f'CC={config.cc}',
-                f'CXX={config.cxx}',
-            })
+                                          f'CC={config.cc}',
+                                          f'CXX={config.cxx}',
+                                      })
 
         from cpppm.conans import PackageLibrary
 
