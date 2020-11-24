@@ -1,10 +1,14 @@
 # cpppm
-CPP Project Manager
+> CPP Project Manager
 
-> Please note that I reference python as python3, python2 is dead and buried... RIP
->
-## What is that
-cpppm is a C/C++ project manager that focus on flexibility.
+`cpppm` is a C/C++ build-system/package manager (through `conan`) that focus on flexibility.
+
+While (most of) other build systems are jailing you into a re-invented scripting
+language, `cpppm` is nothing else but a python module that provides you some
+facilities to build your software.
+Thus, you can do everything you are able to do with python.
+
+The `cpppm` API semantics is close to `CMake` (eg.: *link_libraries*, *compile_options*, etc...).
 
 ### A basic example
 
@@ -21,6 +25,7 @@ TEST_CASE("cpppm loves conan") {
 ```
 - *project.py*:
 ```python
+#!/usr/bin/env python3
 from cpppm import Project, main
 
 project = Project('conan_requires')
@@ -28,11 +33,13 @@ project.requires = 'fmt/6.1.2', 'doctest/2.3.6'
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
 exe.link_libraries = 'fmt', 'doctest'
-main()
+
+if __name__ == '__main__':
+    main()
 ```
 At this point you'll be able to run:
 ```bash
-$ python ./project.py run conan_requires
+$ ./project.py run conan_requires
 
 # Build output ommitted...
 
@@ -45,28 +52,6 @@ $ python ./project.py run conan_requires
 ```
 
 Check out the examples folder for more use cases.
-
-## How it works
-
-It is nothing more that a project file generator, with embedded conan package management.
-It creates CMakeLists.txt file for you, calls the build commands and runs the target(s).
-
-## Why should I use it
-
-I was writing CMakeLists.txt files for decades, and I have been bored of doing:
-```cmake
-configure_file(my_cool_stuff_to_do.py.in my_cool_stuff_to_do.py)
-find_package(PythonInterp REQUIRED)
-function(my_cool_stuff_to_do)
-    custom_command(${PYTHON_EXECUTABLE} my_cool_stuff_to_do.py ARGS ${ARGN})
-endfunction()
-...
-```
-And running many commands *conan*, *cmake*, *make*, *ctest*...
-So, I wanted to turn the process from ~~*conan*, *cmake with __cool python stuff__*, *make*, *ctest*~~
-into **cool python stuff**.
-
-So, If you feel doing such stuff often, give it a try :kissing_heart:.
 
 ### Installation
 
@@ -93,23 +78,21 @@ Options:
   -o, --out-directory TEXT        Build directory, generated files should go
                                   there.
 
+  -d, --debug                     Print extra debug information.
   -c, --clean                     Remove all stuff before processing the
                                   following command.
 
-  -s, --setting TEXT              Adds the given setting (eg.: '-s
-                                  compiler=gcc -s compiler.version=9'), see: .
-
+  -C, --config TEXT               Config name to use.
   -b, --build-type [Debug|Release]
                                   Build type, Debug or Release.
   --help                          Show this message and exit.
 
 Commands:
   build                 Builds the project.
-  configure             Configures CMake stuff.
-  generate              Generates conan/CMake stuff.
-  install               Installs targets to destination
+  config                Project configuration.
+  install               Installs targets to destination.
   install-requirements  Install conan requirements.
-  package               Installs targets to destination (experimental)
+  package               Creates a conan package (experimental).
   run                   Runs the given TARGET with given ARGS.
   test                  Runs the unit tests.
 ```
@@ -117,13 +100,14 @@ Commands:
 ### Documentation
 
 No documentation yet...
-For API, check the examples (Im trying to demonstrate all uses cases), use IDE to edit your project script (eg.: *Pycharm*).
+For API, check the examples (I'm trying to demonstrate all uses cases),
+using a python IDE to edit your project script (eg.: *Pycharm*) helps a lot (doc and completion).
 
 ### Features
 
-- [x] CMakeLists.txt generation
+- [ ] ~~CMakeLists.txt generation~~ (no more using CMake)
 - [x] Project compilation
-- [x] Build events, generators
+- [x] ~~Build events~~ (useless), generators
 - [x] Conan package dependencies management
 - [x] Executables invocation (automatically added to cli interface) 
 - [x] Customizable (you can do anything you can do with python)

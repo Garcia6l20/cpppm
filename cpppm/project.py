@@ -277,16 +277,6 @@ class Project:
     def is_root(self):
         return self.build_path == config._build_path
 
-    def generate(self):
-        """Generates CMake stuff"""
-        self._logger.debug('TODO remove Project.generate method')
-
-    def configure(self, *args):
-        self._logger.debug('TODO remove Project.configure method')
-
-    def _cmake_runner(self):
-        return Runner("cmake", self.build_path)
-
     async def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
         if target:
             target = target if isinstance(target, Target) else self.target(target)

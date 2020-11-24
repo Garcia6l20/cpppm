@@ -17,7 +17,7 @@ from .library import Library
 @click.option('--out-directory', '-o', default=None,
               help="Build directory, generated files should go there.")
 @click.option("--debug", "-d", is_flag=True,
-              help="Print extra useful infos, and sets CMAKE_VERBOSE_MAKEFILE.")
+              help="Print extra debug information.")
 @click.option("--clean", "-c", is_flag=True,
               help="Remove all stuff before processing the following command.")
 @click.option(*_config_option,
@@ -57,29 +57,9 @@ async def install_requirements():
     root_project().install_requirements()
 
 
-@cli.command()
-@click.option('--export-compile-commands', is_flag=True, default=False,
-              help='export commands from CMake (can be used by clangd)')
-@click.pass_context
-async def generate(ctx, export_compile_commands):
-    """Generates conan/CMake stuff."""
-    Project.export_compile_commands = export_compile_commands
-    await ctx.invoke(install_requirements)
-    root_project().generate()
-    if export_compile_commands:
-        root_project().configure('-DCMAKE_EXPORT_COMPILE_COMMANDS=ON')
-
-
-@cli.command()
-@click.pass_context
-async def configure(ctx):
-    """Configures CMake stuff."""
-    await ctx.invoke(generate)
-    root_project().configure()
-
-
 @cli.group('config')
 def config_cmd():
+    """Project configuration."""
     pass
 
 
@@ -87,6 +67,7 @@ def config_cmd():
 @click.argument('items', nargs=-1)
 @click.pass_context
 async def config_set(ctx, items):
+    """Modify configuration value(s)."""
     config = ctx.obj
     config.set(*items)
     config.save()
@@ -96,6 +77,7 @@ async def config_set(ctx, items):
 @click.argument('items', nargs=-1)
 @click.pass_context
 async def config_doc(ctx, items):
+    """Display configuration documentation."""
     config = ctx.obj
     config.doc(*items)
 
@@ -104,6 +86,7 @@ async def config_doc(ctx, items):
 @click.argument('items', nargs=-1)
 @click.pass_context
 async def config_show(ctx, items):
+    """Show current configuration value(s)."""
     config = ctx.obj
     config.show(*items)
 
@@ -131,14 +114,14 @@ async def build(ctx, force, jobs, target):
 @click.argument("destination", default='dist')
 @click.pass_context
 async def install(ctx, destination):
-    """Installs targets to destination"""
+    """Installs targets to destination."""
     await ctx.invoke(build)
     await root_project().install(destination)
 
 
 @cli.command()
 async def package():
-    """Installs targets to destination (experimental)"""
+    """Creates a conan package (experimental)."""
     root_project().package()
 
 
