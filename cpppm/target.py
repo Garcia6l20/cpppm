@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import re
 from abc import abstractmethod
@@ -123,12 +124,12 @@ class Target:
     def library_dirs(self) -> PathList:
         return self._library_dirs
 
-    def build(self):
-        outdated = self.build_deps()
+    async def build(self):
+        outdated = await self.build_deps()
         from cpppm.build.compiler import get_compiler
-        return get_compiler().compile(self, force=outdated)
+        return await get_compiler().compile(self, force=outdated)
 
-    def build_deps(self) -> bool:
+    async def build_deps(self) -> bool:
         definitions = set()
         for k, v in self.compile_definitions.items():
             if v is not None:
@@ -136,18 +137,18 @@ class Target:
             else:
                 definitions.add(f'{k}')
 
-        built = False
-
         from .events import generator
         for evt in self._dependencies.events:
             if isinstance(evt.event, generator):
-                evt()
+                await evt()
 
+        builds = set()
         for lib in self.link_libraries:
             from cpppm import Library
             if isinstance(lib, Library):
-                built |= lib.build()
-
+                builds.add(lib.build())
+        results = await asyncio.gather(*builds)
+        built = all(result is False for result in results)
         return built
 
     @property

@@ -16,7 +16,7 @@ class Executable(Target):
     def executable_path(self) -> Path:
         return self._bin_path / self.binary
 
-    def run(self, *args, working_directory=None):
-        self.build()
+    async def run(self, *args, working_directory=None):
+        await self.build()
         runner = Runner(self.executable_path, working_directory, env={'LD_LIBRARY_PATH': str(self._lib_path)})
-        return runner.run(*args)
+        return await runner.run(*args)

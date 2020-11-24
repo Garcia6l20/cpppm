@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 import inspect
 import re
@@ -329,20 +330,22 @@ class Project:
     def _cmake_runner(self):
         return Runner("cmake", self.build_path)
 
-    def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
+    async def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
         if not target:
             t = self.main_target
         else:
             t = target if isinstance(target, Target) else self.target(target)
 
         if not t:
+            builds = set()
             for subproj in self.subprojects:
-                subproj.build(jobs=jobs)
+                builds.add(subproj.build(jobs=jobs))
+            await asyncio.gather(*builds)
         else:
-            t.build()
+            await t.build()
         return 0
 
-    def run(self, target_name: str, *args):
+    async def run(self, target_name: str, *args):
         target = target_name or self.default_executable or self.main_target
         if target is None:
             self._logger.warning(f'No default target defined')
@@ -356,7 +359,7 @@ class Project:
         if not isinstance(target, Executable):
             self._logger.warning(f'Cannot execute target: {target.name} (not an executable)')
         else:
-            return target.run(*args)
+            return await target.run(*args)
 
     def target(self, name: str) -> Target:
         for t in self.targets:

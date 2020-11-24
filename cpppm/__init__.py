@@ -1,8 +1,7 @@
+import asyncio
 import logging
-from pathlib import Path
 
 from conans.client.conan_api import Conan
-from conans.client.conf.detect import detect_defaults_settings
 from conans.util.conan_v2_mode import CONAN_V2_MODE_ENVVAR
 
 from jinja2 import Environment, PackageLoader
@@ -41,5 +40,10 @@ from .target import Target
 from .executable import Executable
 from .library import Library
 
+
+async def async_main():
+    await cli(standalone_mode=False)
+
+
 def main():
-    cli(standalone_mode=False)
+    asyncio.run(async_main())

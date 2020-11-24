@@ -1,3 +1,4 @@
+import asyncio
 import platform
 import re
 from pathlib import Path
@@ -133,10 +134,12 @@ class Library(Target):
         for test in self.tests:
             test.link_libraries = self.tests_backend
 
-    def test(self):
+    async def test(self):
         from . import current_project
+        builds = set()
         for test in self.tests:
-            current_project().build(test.name)
+            builds.add(current_project().build(test.name))
+        await asyncio.gather(*builds)
 
         for test in self.tests:
-            test.run()
+            await test.run()

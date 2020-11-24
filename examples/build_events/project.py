@@ -16,8 +16,8 @@ exe.link_libraries = 'fmt'
 
 
 @events.generator(['config.hpp'], gen, depends=gen, cwd=exe.build_path / 'generated')
-def config_generator(generator: Executable):
-    generator.run()
+async def config_generator(generator: Executable):
+    await generator.run()
 
 
 exe.dependencies = config_generator

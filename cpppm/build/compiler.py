@@ -62,7 +62,7 @@ class Compiler(Runner):
             timestamp.parent.mkdir(exist_ok=True, parents=True)
             timestamp.touch(exist_ok=True)
 
-    def compile(self, target: 'cpppm.target.Target', pic=True,
+    async def compile(self, target: 'cpppm.target.Target', pic=True,
                 force=False):
         if target._built is not None:
             return target._built
@@ -86,16 +86,17 @@ class Compiler(Runner):
                 opts.add(f'-D{k}')
 
         opts.update(target.compile_options)
-        objs = []
+        objs = set()
         for source in target.compile_sources.absolute():
             out = output / source.with_suffix('.o').name
-            objs.append(out)
+            objs.add(out)
             source_deps = self.source_deps(target, source)
             if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime) \
                     or (self._is_source_outdated(target, source, source_deps)):
                 self._logger.info(f'compiling {out.name}')
                 try:
-                    self.run(*opts, str(source), '-o', str(out))
+                    # TODO use asyncio.gather
+                    await self.run(*opts, str(source), '-o', str(out))
                     self._update_deps_timestamps(target, source, source_deps)
                     built = True
                 except ProcessError as err:
@@ -120,16 +121,16 @@ class Compiler(Runner):
                 if str(output).endswith('.so'):
                     # shared library
                     self._logger.info(f'creating library {output.name}')
-                    self.run('-shared', *opts, *[str(o) for o in objs], '-o', str(output))
+                    await self.run('-shared', *opts, *[str(o) for o in objs], '-o', str(output))
                 elif str(output).endswith('.a'):
                     # archive
                     self._logger.info(f'creating archive {output.name}')
                     exe = Runner(shutil.which('ar'), recorder=self.on_cmd)
-                    exe.run('rcs', str(output), *[str(o) for o in objs])
+                    await exe.run('rcs', str(output), *[str(o) for o in objs])
                 else:
                     # executable
                     self._logger.info(f'linking {output.name}')
-                    self.run(*[str(o) for o in objs], *opts, '-o', str(output))
+                    await self.run(*[str(o) for o in objs], *opts, '-o', str(output))
             except ProcessError as err:
                 raise CompileError(err)
 

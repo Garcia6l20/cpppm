@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import shutil
 import sys
@@ -49,17 +50,11 @@ def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
         Project.verbose_makefile = True
 
     if ctx.invoked_subcommand is None:
-        ctx.invoke(run)
-
-
-
-@cli.command('__cpppm_event__', hidden=True)
-def __cpppm_event__():
-    pass
+        return ctx.invoke(run)
 
 
 @cli.command('install-requirements')
-def install_requirements():
+async def install_requirements():
     """Install conan requirements."""
     root_project().install_requirements()
 
@@ -68,10 +63,10 @@ def install_requirements():
 @click.option('--export-compile-commands', is_flag=True, default=False,
               help='export commands from CMake (can be used by clangd)')
 @click.pass_context
-def generate(ctx, export_compile_commands):
+async def generate(ctx, export_compile_commands):
     """Generates conan/CMake stuff."""
     Project.export_compile_commands = export_compile_commands
-    ctx.invoke(install_requirements)
+    await ctx.invoke(install_requirements)
     root_project().generate()
     if export_compile_commands:
         root_project().configure('-DCMAKE_EXPORT_COMPILE_COMMANDS=ON')
@@ -79,9 +74,9 @@ def generate(ctx, export_compile_commands):
 
 @cli.command()
 @click.pass_context
-def configure(ctx):
+async def configure(ctx):
     """Configures CMake stuff."""
-    ctx.invoke(generate)
+    await ctx.invoke(generate)
     root_project().configure()
 
 
@@ -93,7 +88,7 @@ def config_cmd():
 @config_cmd.command('set')
 @click.argument('items', nargs=-1)
 @click.pass_context
-def config_set(ctx, items):
+async def config_set(ctx, items):
     config = ctx.obj
     config.set(*items)
     config.save()
@@ -102,7 +97,7 @@ def config_set(ctx, items):
 @config_cmd.command('doc')
 @click.argument('items', nargs=-1)
 @click.pass_context
-def config_doc(ctx, items):
+async def config_doc(ctx, items):
     config = ctx.obj
     config.doc(*items)
 
@@ -110,7 +105,7 @@ def config_doc(ctx, items):
 @config_cmd.command('show')
 @click.argument('items', nargs=-1)
 @click.pass_context
-def config_show(ctx, items):
+async def config_show(ctx, items):
     config = ctx.obj
     config.show(*items)
 
@@ -120,15 +115,15 @@ def config_show(ctx, items):
 @click.option("--jobs", "-j", help="Number of build jobs", default=None)
 @click.argument("target", required=False)
 @click.pass_context
-def build(ctx, force, jobs, target):
+async def build(ctx, force, jobs, target):
     """Builds the project."""
     source_dir = Path(sys.argv[0]).parent
     click.echo(f"Source directory: {str(source_dir.absolute())}")
     click.echo(f"Build directory: {str(root_project().build_path.absolute())}")
     click.echo(f"Project: {root_project().name}")
-    ctx.invoke(configure)
+    await ctx.invoke(configure)
     Compiler.force = force
-    rc = root_project().build(target, jobs)
+    rc = await root_project().build(target, jobs)
     if rc != 0:
         click.echo(f'Build failed with return code: {rc}')
         exit(rc)
@@ -138,15 +133,15 @@ def build(ctx, force, jobs, target):
 @click.option('--no-build', '-n', is_flag=True, help='Do not build the project')
 @click.argument("destination", default='dist')
 @click.pass_context
-def install(ctx, no_build, destination):
+async def install(ctx, no_build, destination):
     """Installs targets to destination"""
     if not no_build:
-        ctx.invoke(build)
+        await ctx.invoke(build)
     root_project().install(destination)
 
 
 @cli.command()
-def package():
+async def package():
     """Installs targets to destination (experimental)"""
     root_project().package()
 
@@ -154,31 +149,33 @@ def package():
 @cli.command()
 @click.argument("target", required=False)
 @click.pass_context
-def test(ctx, target):
+async def test(ctx, target):
     """Runs the unit tests."""
-    ctx.invoke(build, target=target)
+    await ctx.invoke(build, target=target)
     if target:
         target = root_project().target(target)
         assert isinstance(target, Library)
         click.secho(f'Running {target} tests', fg='yellow')
-        target.test()
+        await target.test()
     else:
         tests = set()
+        builds = set()
         for lib in Project.all:
             if isinstance(lib, Library):
                 for tst in lib.tests:
-                    tst.build()
+                    builds.add(tst.build())
                     tests.add(tst)
+        await asyncio.gather(*builds)
         for tst in tests:
             click.secho(f'Running {tst.name} test', fg='yellow')
-            tst.run()
+            await tst.run()
 
 
 @cli.command()
 @click.argument("target", required=False)
 @click.argument("args", required=False, nargs=-1, default=None)
 @click.pass_context
-def run(ctx, target, args):
+async def run(ctx, target, args):
     """Runs the given TARGET with given ARGS."""
-    ctx.invoke(build, target=target)
-    root_project().run(target, *args)
+    await ctx.invoke(build, target=target)
+    await root_project().run(target, *args)

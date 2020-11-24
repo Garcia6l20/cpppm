@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import Iterable
 from functools import wraps
@@ -12,21 +13,37 @@ def working_directory(cwd: Path, env: Dict = None, create=True):
         @wraps(func)
         def wrapper():
             """Changes working directory and returns to previous on exit."""
-            prev_cwd = Path.cwd()
-            oldenv = None
-            if env:
-                oldenv = os.environ
-                os.environ.update(env)
-            if create:
-                cwd.mkdir(exist_ok=True)
-            os.chdir(str(cwd.absolute()))
-            if oldenv:
-                os.environ = oldenv
+            wrapper.prev_cwd = None
+            wrapper.oldenv = None
+
+            def setup_env():
+                wrapper.prev_cwd = Path.cwd()
+                if env:
+                    wrapper.oldenv = os.environ
+                    os.environ.update(env)
+                if create:
+                    cwd.mkdir(exist_ok=True)
+                os.chdir(str(cwd.absolute()))
+
+            def cleanup_env():
+                os.chdir(str(wrapper.prev_cwd))
+                if wrapper.oldenv:
+                    os.environ = wrapper.oldenv
+
             try:
+                setup_env()
                 result = func()
             finally:
-                os.chdir(str(prev_cwd))
-            return result
+                cleanup_env()
+            if asyncio.iscoroutine(result):
+                async def coro_wrap():
+                    setup_env()
+                    await result
+                    cleanup_env()
+                    return result
+                return coro_wrap()
+            else:
+                return result
         return wrapper
     return decorator
 

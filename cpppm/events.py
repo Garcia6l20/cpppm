@@ -86,9 +86,6 @@ class Event:
             logger.debug(f'firing {self.function_name} with {args}, {kwargs} ({self.sha1} at {self.cwd})')
             return func(*args, **kwargs)
 
-        if '__cpppm_event__' in sys.argv and sys.argv[-1] == self.sha1:
-            sys.exit(wrapper())
-
         current_project().build_path.mkdir(exist_ok=True)
         if self.event_type == EventKind.GENERATOR:
             current_project().generators.append(self)

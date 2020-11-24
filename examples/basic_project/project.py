@@ -9,7 +9,7 @@ basic.sources = {
     'src/private.hpp'
 }
 basic.include_dirs = 'include'
-basic.compile_definitions = {'DEF': None, 'DEFAULT_WHO': '"cpppm"'}
+basic.compile_definitions = {'DEF': None, 'DEFAULT_WHO': '\"cpppm\"'}
 basic.shared = True
 # same effect
 # basic.static = True

@@ -4,6 +4,9 @@ from conans import ConanFile as ConanConanFile
 from conans import tools
 from cpppm import Project, Library, root_project
 
+import nest_asyncio
+nest_asyncio.apply()
+
 
 class PackageInfos:
 
@@ -81,7 +84,7 @@ class PackageLibrary(Library):
     def is_header_only(self):
         return self.name not in self._infos.libs
 
-    def build(self):
+    async def build(self):
         return False
 
 
