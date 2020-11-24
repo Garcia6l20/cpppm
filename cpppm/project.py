@@ -8,8 +8,7 @@ from typing import List, Union, cast, Any, Dict, Set
 
 from conans.model.requires import ConanFileReference
 
-from . import _jenv, _get_logger, _get_build_path, get_conan, get_settings
-from .build.compiler import get_compiler
+from . import _jenv, _get_logger, get_conan
 from .config import config
 from .executable import Executable
 from .library import Library
@@ -35,7 +34,6 @@ class Project:
     build_path: Path = None
     __all_targets: Set[Target] = set()
     _pkg_libraries: Dict[str, 'cpppm.conans.PackageLibrary'] = dict()
-    _profile = 'default'
 
     # export commands from CMake (can be used by clangd)
     export_compile_commands = False
@@ -60,11 +58,11 @@ class Project:
 
         # adjust output dir
         if not Project.root_project:
-            self.build_path = build_path or _get_build_path(self.source_path)
-            Project._root_project = self
-            Project.project_settings = get_settings()
             self.build_relative = '.'
             config.init(self.source_path)
+            Project.project_settings = config._settings
+            self.build_path = build_path or config._build_path
+            Project._root_project = self
         else:
             self._root_project = Project._root_project
             self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
@@ -99,17 +97,6 @@ class Project:
     @classproperty
     def all(cls):
         return cls.__all_targets
-
-    @classproperty
-    def profile(cls):
-        return cls._profile
-
-    @classmethod
-    def set_profile(cls, profile):
-        cls._profile = profile or 'default'
-        conan = get_conan()
-        pr = conan.read_profile(cls._profile)
-        cls.project_settings = dict(pr.settings)
 
     @classproperty
     def root_project(cls) -> 'Project':
@@ -253,10 +240,6 @@ class Project:
             }))
 
         settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
-        cc, version = config._conan_compiler
-        settings.append(f'compiler={cc}')
-        settings.append(f'compiler.version={version}')
-        settings.append(f'compiler.libcxx={config.libcxx}')
 
         conan_file = str(self.build_path / 'conanfile.txt')
 
@@ -334,13 +317,13 @@ class Project:
 
     @property
     def is_root(self):
-        return self.build_path == _get_build_path(self.source_path)
+        return self.build_path == config._build_path
 
     def generate(self):
         """Generates CMake stuff"""
         self._logger.debug('TODO remove Project.generate method')
 
-    def configure(self, *args) -> int:
+    def configure(self, *args):
         self._logger.debug('TODO remove Project.configure method')
 
     def _cmake_runner(self):

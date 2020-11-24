@@ -21,14 +21,10 @@ from .library import Library
               help="Remove all stuff before processing the following command.")
 @click.option("--config", "-C",
               help="Config name to use.", default='default')
-@click.option("--profile", "-p",
-              help="Conan profile to use.")
-@click.option("--setting", "-s", multiple=True,
-              help="Adds the given setting (eg.: '-s compiler=gcc -s compiler.version=9'), see: .")
 @click.option("--build-type", "-b", default="Release",
               type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
 @click.pass_context
-def cli(ctx, verbose, out_directory, debug, clean, config, profile, setting, build_type):
+def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
     from .config import config as cpppm_config
     if not current_project().is_root:
         return
@@ -40,10 +36,8 @@ def cli(ctx, verbose, out_directory, debug, clean, config, profile, setting, bui
     if config:
         cpppm_config.load(config)
 
-    root_project().settings = {setting.split('=') for setting in setting}
     Project.build_type = build_type
     current_project().build_path.mkdir(exist_ok=True)
-    Project.set_profile(profile)
     if not current_project().build_path.exists():
         raise RuntimeError('Failed to create build directory: {build_directory}')
     if verbose:

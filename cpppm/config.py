@@ -1,8 +1,8 @@
 import json
 
-from conans.client.conf.detect import _get_compiler_and_version, _get_profile_compiler_version
+from conans.client.conf.detect import _get_compiler_and_version, _get_profile_compiler_version, detect_defaults_settings
 
-from . import _source_path
+from . import _source_path, get_conan
 
 
 class Config:
@@ -20,6 +20,8 @@ class Config:
         self._id = 'default'
         self._conan_compiler = None
         self._source_path = None
+        self._build_path = None
+        self._settings = None
 
     def init(self, source_path):
         self._source_path = source_path
@@ -67,6 +69,15 @@ class Config:
             compiler, version = _get_compiler_and_version(quiet(), self.cc)
             version = _get_profile_compiler_version(compiler, version, quiet())
             self._conan_compiler = (compiler, version)
+            app = get_conan().app
+            self._settings = dict(detect_defaults_settings(app.out, app.cache.default_profile_path))
+            self._settings.update({
+                'compiler': compiler,
+                'compiler.version': version,
+                'compiler.libcxx': config.libcxx
+            })
+            self._build_path = (
+                        self._source_path / 'build' / f'{compiler}-{version}-{self._settings["arch"]}').absolute()
 
         if path.exists():
             for k, v in json.load(path.open('r')).items():
