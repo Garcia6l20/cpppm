@@ -1,3 +1,4 @@
+import ast
 import json
 
 from conans.client.conf.detect import _get_compiler_and_version, _get_profile_compiler_version, detect_defaults_settings
@@ -9,13 +10,15 @@ class Config:
     __docs = {
         'cc': '''C compiler (default: 'cc')''',
         'cxx': '''C++ compiler (default: 'c++')''',
-        'libcxx': '''C++ standard library (default: 'libstdc++11')'''
+        'libcxx': '''C++ standard library (default: 'libstdc++11')''',
+        'ccache': '''Use ccache if available (default: True)''',
     }
 
     def __init__(self):
         self.cc = 'cc'
         self.cxx = 'c++'
         self.libcxx = 'libstdc++11'
+        self.ccache = True
 
         self._id = 'default'
         self._conan_compiler = None
@@ -49,7 +52,11 @@ class Config:
         for k, v in (item.split('=') for item in items):
             if not hasattr(self, k):
                 raise RuntimeError(f'No such configuration key {k}')
-            setattr(self, k, v)
+            t = type(getattr(self, k))
+            if t != str:
+                setattr(self, k, ast.literal_eval(v))
+            else:
+                setattr(self, k, v)
 
     def load(self, id=None):
         self._id = id or self._id
