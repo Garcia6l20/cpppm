@@ -32,6 +32,7 @@ class Target:
         self._compile_definitions = dict()
         self.events: List[Event] = []
         self._built = None
+        self._build_lock = asyncio.Lock()
 
         if 'install' in kwargs:
             self.install = bool(kwargs['install'])
