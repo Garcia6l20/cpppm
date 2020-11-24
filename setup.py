@@ -7,7 +7,7 @@ package = "cpppm"
 
 setuptools.setup(
     name=package,
-    version="0.2.3",
+    version="0.3.0",
     license='MIT',
     author="Garcia Sylvain",
     author_email="garcia.6l20@gmail.com",
@@ -30,6 +30,8 @@ setuptools.setup(
     python_requires='>=3.8',
     install_requires=[
         'Click>=7.1.2',
-        'conan>=1.31.2'
+        'conan>=1.31.2',
+        'jinja2>=2.11.2',
+        'nest-asyncio>=1.4.3',
     ],
 )

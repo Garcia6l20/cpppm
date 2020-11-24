@@ -1,0 +1,39 @@
+name: build-examples
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+
+    strategy:
+      matrix:
+        config:
+          - {
+            name: "Ubuntu 20.04",
+            os: ubuntu-20.04,
+            cc: "gcc",
+            cxx: "g++",
+          }
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install requirements
+        shell: bash
+        run: |
+          sudo apt-get install g++ python3-pip
+
+      - name: Install cpppm
+        shell: bash
+        run: |
+          python3 -m pip install .
+
+      - name: Build examples
+        shell: bash
+        run: |
+          ./examples/project.py config set cc=${{ matrix.config.cc }} cxx=${{ matrix.config.cxx }}
+          ./examples/project.py -d test
