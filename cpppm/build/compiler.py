@@ -21,7 +21,7 @@ class Compiler(Runner):
     def __init__(self, exe, ccache, *args, **kwargs):
         self.commands = list()
         if ccache:
-            super().__init__(ccache, args={exe}, recorder=self.on_cmd, **kwargs)
+            super().__init__(ccache, args={exe, *args}, recorder=self.on_cmd, **kwargs)
             self._logger = _get_logger(self, Path(exe).name)
             self._logger.info('using ccache')
         else:
@@ -109,7 +109,7 @@ class Compiler(Runner):
             except ProcessError as err:
                 raise CompileError(err)
 
-            if len(objs):
+            if len(compilations):
                 opts = set()
                 if pic:
                     opts.add('-fPIC')

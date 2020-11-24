@@ -151,7 +151,7 @@ class Target:
             if isinstance(lib, Library):
                 builds.add(lib.build())
         results = await asyncio.gather(*builds)
-        built = all(result is False for result in results)
+        built = any(results) if len(results) else False
         return built
 
     @property
