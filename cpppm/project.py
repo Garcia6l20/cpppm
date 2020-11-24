@@ -77,7 +77,6 @@ class Project:
         self._executables: Set[Executable] = set()
         self._requires: Set[str] = set()
         self._build_requires: Set[str] = set()
-        self._settings: Set[str, Any] = {"os", "compiler", "build_type", "arch"}
         self._options: Dict[str, Any] = {"fPIC": [True, False], "shared": [True, False]}
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
         self._build_modules: Set[str] = set()
@@ -205,10 +204,6 @@ class Project:
     @property
     def dependencies_options(self):
         return dict(filter(lambda it: re.compile(r'.+:.+').match(it[0]), self.default_options.items()))
-
-    @collectable(subprojects)
-    def settings(self):
-        return self._settings
 
     @collectable(subprojects)
     def build_modules(self):
@@ -390,4 +385,11 @@ def current_project() -> Project:
 
 
 def root_project() -> Project:
+    if not Project.root_project:
+        # project is not set means we are being called from conan
+        # just try to load project.py from cwd
+        spec = importlib.util.spec_from_file_location('cpppm-project', Path.cwd().joinpath('project.py'))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        Project.root_project = module.project
     return Project.root_project

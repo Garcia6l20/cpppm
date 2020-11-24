@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from conans import ConanFile as ConanConanFile
@@ -94,10 +95,10 @@ class ConanFile(ConanConanFile):
     name = project.package_name
     version = project.version
     license = project.license
-    settings = project.settings
+    settings = {"os", "compiler", "build_type", "arch"}
     options = project.options
-    requires = project.requires
-    build_requires = project.build_requires
+    requires = tuple(project.requires)
+    build_requires = tuple(project.build_requires)
     default_options = project.default_options
     no_copy_source = True
 
@@ -105,19 +106,18 @@ class ConanFile(ConanConanFile):
         self.copy("*", dst="bin", src="bin")
 
     def configure(self):
-        # tools.check_min_cppstd(self, "20")
         if self.settings.os == "Windows":
             del self.options.fPIC
 
     def build(self):
+        loop = asyncio.new_event_loop()
         ConanFile.project.install_requirements()
-        ConanFile.project.generate()
-        ConanFile.project.build()
+        loop.run_until_complete(ConanFile.project.build())
 
     def package(self):
-        ConanFile.project.install(self.package_folder)
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(ConanFile.project.install(self.package_folder))
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.bindirs = ['bin']
-        self.cpp_info.build_modules.extend(ConanFile.project.dist_layout.build_modules)
