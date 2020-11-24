@@ -15,9 +15,13 @@ exe.sources = 'src/main.cpp'
 exe.link_libraries = 'fmt'
 
 
-@events.generator(['config.hpp'], gen, depends=gen, cwd=exe.build_path / 'generated')
+# note:
+#   as we are in a coroutine context (and other builds/runs might occurs)
+#   paths must be handled as absolute (os.chdir might affect all running subprocesses)
+#   if something like os.chdir is required, just don't use async/await (but generator call will be bocking)
+@events.generator([exe.build_path / 'generated' / 'config.hpp'], gen, depends=gen)
 async def config_generator(generator: Executable):
-    await generator.run()
+    await generator.run(str(exe.build_path / 'generated' / 'config.hpp'))
 
 
 exe.dependencies = config_generator

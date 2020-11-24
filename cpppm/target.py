@@ -140,7 +140,9 @@ class Target:
         from .events import generator
         for evt in self._dependencies.events:
             if isinstance(evt.event, generator):
-                await evt()
+                result = evt()
+                if result and asyncio.iscoroutine(result):
+                    await result
 
         builds = set()
         for lib in self.link_libraries:
