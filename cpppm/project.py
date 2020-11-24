@@ -273,49 +273,6 @@ class Project:
                 for pkg in installed['packages']:
                     return pkg['cpp_info']
 
-    def _conan_paths(self, pkg_name, path_name):
-        infos = self.conan_infos(pkg_name)
-        if infos:
-            return [Path(infos['rootpath']) / path for path in infos[path_name]]
-
-    def conan_library_paths(self, pkg_name):
-        return self._conan_paths(pkg_name, 'libdirs')
-
-    def conan_link_libraries(self, pkg_name, infos=None):
-        infos = infos or self.conan_infos(pkg_name)
-        system_libs = []
-        libs = []
-        if infos:
-            if 'libs' in infos:
-                libs.extend(infos['libs'])
-            if 'system_libs' in infos:
-                system_libs.extend(infos['system_libs'])
-            if 'components' in infos:
-                for infos in infos['components'].values():
-                    comp_sys_libs, comp_libs = self.conan_link_libraries(pkg_name, infos)
-                    system_libs.extend(comp_sys_libs)
-                    libs.extend(comp_libs)
-        return system_libs, libs
-
-    def conan_include_paths(self, pkg_name):
-        return self._conan_paths(pkg_name, 'includedirs')
-
-    def conan_defines(self, pkg_name):
-        infos = self.conan_infos(pkg_name)
-        if 'defines' in infos:
-            return infos['defines']
-        elif 'components' in infos:
-            for infos in infos['components'].values():
-                if 'defines' in infos:
-                    return infos['defines']
-        return []
-
-    def conan_build_paths(self, pkg_name):
-        return self._conan_paths(pkg_name, 'builddirs')
-
-    def conan_res_paths(self, pkg_name):
-        return self._conan_paths(pkg_name, 'resdirs')
-
     @property
     def is_root(self):
         return self.build_path == config._build_path
@@ -331,18 +288,16 @@ class Project:
         return Runner("cmake", self.build_path)
 
     async def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
-        if not target:
-            t = self.main_target
-        else:
-            t = target if isinstance(target, Target) else self.target(target)
+        if target:
+            target = target if isinstance(target, Target) else self.target(target)
 
-        if not t:
+        if not target:
             builds = set()
-            for subproj in self.subprojects:
-                builds.add(subproj.build(jobs=jobs))
+            for target in self.all:
+                builds.add(target.build())
             await asyncio.gather(*builds)
         else:
-            await t.build()
+            await target.build()
         return 0
 
     async def run(self, target_name: str, *args):
@@ -396,7 +351,7 @@ class Project:
     def set_event(self, func):
         setattr(self, func.__name__, func)
 
-    def install(self, destination: Union[str, Path]):
+    async def install(self, destination: Union[str, Path]):
         destination = Path(destination)
 
         logger = self._logger
@@ -411,22 +366,24 @@ class Project:
 
         # copy executables
         for exe in self._executables:
-            exe.build()
-            exe.bin_path.copy(destination / self.installation.binaries)
+            if exe.install:
+                exe.bin_path.copy(destination / self.installation.binaries)
 
         # copy libraries/headers
         for lib in self._libraries:
-            lib.build()
-            if lib.binary:
-                lib.bin_path.copy(destination / self.installation.binaries)
-            if lib.library:
-                lib.lib_path.copy(destination / self.installation.libraries)
-            for header in lib.public_headers.absolute():
-                header.copy(destination / self.installation.headers)
+            if lib.install:
+                if lib.binary:
+                    lib.bin_path.copy(destination / self.installation.binaries)
+                if lib.library:
+                    lib.lib_path.copy(destination / self.installation.libraries)
+                for header in lib.public_headers.absolute():
+                    header.copy(destination / self.installation.headers)
 
         # subprojects
+        installs = set()
         for project in self.subprojects:
-            project.install(destination)
+            installs.add(project.install(destination))
+        await asyncio.gather(*installs)
 
     def package(self):
         conanfile_path = self.source_path / 'conanfile.py'

@@ -130,14 +130,12 @@ async def build(ctx, force, jobs, target):
 
 
 @cli.command()
-@click.option('--no-build', '-n', is_flag=True, help='Do not build the project')
 @click.argument("destination", default='dist')
 @click.pass_context
-async def install(ctx, no_build, destination):
+async def install(ctx, destination):
     """Installs targets to destination"""
-    if not no_build:
-        await ctx.invoke(build)
-    root_project().install(destination)
+    await ctx.invoke(build)
+    await root_project().install(destination)
 
 
 @cli.command()

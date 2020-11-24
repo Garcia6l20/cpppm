@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import re
 import shutil
@@ -69,7 +70,6 @@ class Compiler(Runner):
 
         force = force or Compiler.force
         self._logger.info(f'building {target}')
-        built = False
         output = target.build_path.absolute()
         opts = {'-c'}
         if self.is_clang() == 'clang':
@@ -87,22 +87,26 @@ class Compiler(Runner):
 
         opts.update(target.compile_options)
         objs = set()
+        compilations = set()
         for source in target.compile_sources.absolute():
             out = output / source.with_suffix('.o').name
             objs.add(out)
             source_deps = self.source_deps(target, source)
             if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime) \
                     or (self._is_source_outdated(target, source, source_deps)):
-                self._logger.info(f'compiling {out.name}')
-                try:
-                    # TODO use asyncio.gather
+
+                async def do_compile():
+                    self._logger.info(f'compiling {out.name} ({target})')
                     await self.run(*opts, str(source), '-o', str(out))
                     self._update_deps_timestamps(target, source, source_deps)
-                    built = True
-                except ProcessError as err:
-                    raise CompileError(err)
+                compilations.add(do_compile())
             else:
                 self._logger.info(f'object {out} is up-to-date')
+
+        try:
+            await asyncio.gather(*compilations)
+        except ProcessError as err:
+            raise CompileError(err)
 
         if len(objs):
             opts = set()
@@ -134,8 +138,8 @@ class Compiler(Runner):
             except ProcessError as err:
                 raise CompileError(err)
 
-        target._built = built
-        return built
+        target._built = len(compilations)
+        return target._built
 
 
 def get_compiler(name: Union[str, Path] = None):
