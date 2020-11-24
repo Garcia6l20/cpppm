@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from . import _output_dir_option, _logger
+from . import _config_option, _logger
 from .build.compiler import Compiler
 from .project import current_project, root_project, Project
 from .library import Library
@@ -14,13 +14,13 @@ from .library import Library
 
 @click.group(invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Let me talk about me.')
-@click.option(*_output_dir_option, default=None,
+@click.option('--out-directory', '-o', default=None,
               help="Build directory, generated files should go there.")
 @click.option("--debug", "-d", is_flag=True,
               help="Print extra useful infos, and sets CMAKE_VERBOSE_MAKEFILE.")
 @click.option("--clean", "-c", is_flag=True,
               help="Remove all stuff before processing the following command.")
-@click.option("--config", "-C",
+@click.option(*_config_option,
               help="Config name to use.", default='default')
 @click.option("--build-type", "-b", default="Release",
               type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
@@ -34,8 +34,6 @@ def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
         if out_directory.exists():
             shutil.rmtree(out_directory)
     ctx.obj = cpppm_config
-    if config:
-        cpppm_config.load(config)
 
     Project.build_type = build_type
     current_project().build_path.mkdir(exist_ok=True)
@@ -121,8 +119,8 @@ async def build(ctx, force, jobs, target):
     click.echo(f"Source directory: {str(source_dir.absolute())}")
     click.echo(f"Build directory: {str(root_project().build_path.absolute())}")
     click.echo(f"Project: {root_project().name}")
-    await ctx.invoke(configure)
     Compiler.force = force
+    await ctx.invoke(install_requirements)
     rc = await root_project().build(target, jobs)
     if rc != 0:
         click.echo(f'Build failed with return code: {rc}')

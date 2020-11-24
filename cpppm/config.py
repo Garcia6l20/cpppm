@@ -1,9 +1,11 @@
 import ast
 import json
+import sys
 
 from conans.client.conf.detect import _get_compiler_and_version, _get_profile_compiler_version, detect_defaults_settings
+from conans.client.profile_loader import profile_from_args
 
-from . import _source_path, get_conan
+from . import get_conan, _config_option
 
 
 class Config:
@@ -24,6 +26,7 @@ class Config:
         self._conan_compiler = None
         self._source_path = None
         self._build_path = None
+        self._profile = None
         self._settings = None
 
     def init(self, source_path):
@@ -58,8 +61,11 @@ class Config:
             else:
                 setattr(self, k, v)
 
-    def load(self, id=None):
-        self._id = id or self._id
+    def load(self):
+        intersection = _config_option.intersection(set(sys.argv))
+        if intersection:
+            self._id = sys.argv[sys.argv.index(intersection.pop()) + 1]
+
         path = self._path()
 
         class quiet:
@@ -77,14 +83,13 @@ class Config:
             version = _get_profile_compiler_version(compiler, version, quiet())
             self._conan_compiler = (compiler, version)
             app = get_conan().app
-            self._settings = dict(detect_defaults_settings(app.out, app.cache.default_profile_path))
-            self._settings.update({
-                'compiler': compiler,
-                'compiler.version': version,
-                'compiler.libcxx': config.libcxx
-            })
+            self._profile = profile_from_args(None,
+                                              [f'compiler={compiler}', f'compiler.version={version}',
+                                               f'compiler.libcxx={self.libcxx}'],
+                                              None, None, None, app.cache)
+            self._settings = self._profile.settings
             self._build_path = (
-                        self._source_path / 'build' / f'{compiler}-{version}-{self._settings["arch"]}').absolute()
+                    self._source_path / 'build' / f'{compiler}-{version}-{self._settings["arch"]}').absolute()
 
         if path.exists():
             for k, v in json.load(path.open('r')).items():

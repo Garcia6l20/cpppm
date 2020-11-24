@@ -14,7 +14,7 @@ _logger = logging.getLogger('cpppm')
 
 _jenv = Environment(loader=PackageLoader('cpppm', 'templates'), extensions=['jinja2.ext.do'])
 
-_output_dir_option = "--out-directory", "-o"
+_config_option = {"--config", "-C"}
 
 _source_path = None
 __build_path = None
@@ -42,7 +42,9 @@ from .library import Library
 
 
 async def async_main():
-    await cli(standalone_mode=False)
+    res = cli(standalone_mode=False)
+    if asyncio.iscoroutine(res):
+        await res
 
 
 def main():
