@@ -109,7 +109,7 @@ class Target:
                 libs.update(lib._all_libraries())
         return libs
 
-    @list_property
+    @collectable(link_libraries, permissive=True)
     def compile_options(self) -> set:
         return self._compile_options
 

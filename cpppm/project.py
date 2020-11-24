@@ -14,7 +14,6 @@ from .config import config
 from .executable import Executable
 from .library import Library
 from .target import Target
-from .utils import Runner
 from .utils.decorators import classproperty, collectable
 
 
@@ -39,6 +38,7 @@ class Project:
     # export commands from CMake (can be used by clangd)
     export_compile_commands = False
     verbose_makefile = False
+    settings = None
 
     def __init__(self, name, version: str = None, package_name=None, build_path=None):
         self.name = name
@@ -61,7 +61,7 @@ class Project:
         if not Project.root_project:
             self.build_relative = '.'
             config.init(self.source_path)
-            Project.project_settings = config._settings
+            Project.settings = config._settings
             self.build_path = build_path or config._build_path
             Project._root_project = self
         else:
@@ -240,7 +240,7 @@ class Project:
                 'options': self.requires_options,
             }))
 
-        settings = [f'{k}={v}' for k, v in Project.project_settings.items()]
+        settings = [f'{k}={v}' for k, v in Project.settings.items()]
 
         conan_file = str(self.build_path / 'conanfile.txt')
 
