@@ -126,9 +126,13 @@ class Target:
         return self._library_dirs
 
     async def build(self):
-        outdated = await self.build_deps()
-        from cpppm.build.compiler import get_compiler
-        return await get_compiler().compile(self, force=outdated)
+        async with self._build_lock:
+            if self._built is not None:
+                return self._built
+
+            outdated = await self.build_deps()
+            from cpppm.build.compiler import get_compiler
+            return await get_compiler().compile(self, force=outdated)
 
     async def build_deps(self) -> bool:
         definitions = set()
