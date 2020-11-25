@@ -131,6 +131,8 @@ class Compiler(Runner):
                 else:
                     # executable
                     self._logger.info(f'linking {output.name}')
+                    if self.is_clang():
+                        opts.add(f'-stdlib={config.libcxx}')
                     await self.run(*[str(o) for o in objs], *opts, '-o', str(output))
             except ProcessError as err:
                 raise CompileError(err)

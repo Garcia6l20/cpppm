@@ -22,8 +22,8 @@ jobs:
           - {
             name: "Ubuntu 20.04 (clang)",
             os: ubuntu-20.04,
-            cc: clang,
-            cxx: clang++,
+            cc: clang-10,
+            cxx: clang++-10,
             libcxx: libc++
           }
 
@@ -33,7 +33,7 @@ jobs:
       - name: Install requirements
         shell: bash
         run: |
-          sudo apt-get install g++ python3-pip
+          sudo apt-get install python3-pip
 
       - name: Install cpppm
         shell: bash
