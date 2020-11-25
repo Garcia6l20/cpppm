@@ -38,9 +38,9 @@ def working_directory(cwd: Path, env: Dict = None, create=True):
             if asyncio.iscoroutine(result):
                 async def coro_wrap():
                     setup_env()
-                    await result
+                    result2 = await result
                     cleanup_env()
-                    return result
+                    return result2
                 return coro_wrap()
             else:
                 return result

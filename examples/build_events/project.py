@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from cpppm import Project, Executable, main, events
 
+from ext_example.git import git_config_generator
+
 project = Project('events')
 project.requires = 'fmt/7.1.2'
 # project.requires_options = {'fmt:header_only': True}
@@ -14,6 +16,8 @@ gen.compile_options = '-std=c++17'
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'
 exe.link_libraries = 'fmt'
+
+exe.dependencies = git_config_generator(exe.build_path / 'generated' / 'git_config.hpp')
 
 
 # note:

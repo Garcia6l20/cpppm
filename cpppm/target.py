@@ -139,11 +139,13 @@ class Target:
                 definitions.add(f'{k}')
 
         from .events import generator
+        events_to_wait = set()
         for evt in self._dependencies.events:
             if isinstance(evt.event, generator):
                 result = evt()
                 if result and asyncio.iscoroutine(result):
-                    await result
+                    events_to_wait.add(result)
+        await asyncio.gather(*events_to_wait)
 
         builds = set()
         for lib in self.link_libraries:

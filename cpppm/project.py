@@ -3,9 +3,10 @@ import importlib.util
 import inspect
 import re
 import shutil
+import sys
 
 from pathlib import Path
-from typing import List, Union, cast, Any, Dict, Set
+from typing import Union, cast, Any, Dict, Set
 
 from conans.model.requires import ConanFileReference
 
@@ -21,6 +22,7 @@ def load_project(path=Path.cwd(), name=None):
     assert path.is_dir()
     if not name:
         name = path.name
+    sys.path.append(path)  # add project's path to PYTHONPATH to allow easy extending
     spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

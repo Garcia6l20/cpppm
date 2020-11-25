@@ -18,9 +18,10 @@ class Runner:
         self.cwd = cwd
         self.env = env
         self.recorder = recorder
-        self.args = args or {}
+        self.args = args or set()
 
-    async def run(self, *args, cwd: Union[str, Path] = None, env: Dict = None, dry_run=False, recorder=None):
+    async def run(self, *args, cwd: Union[str, Path] = None, env: Dict = None, dry_run=False, recorder=None,
+                  stdout=None):
         if not cwd:
             cwd = self.cwd or Path.cwd()
         if not env:
@@ -40,14 +41,15 @@ class Runner:
                 proc = await asyncio.create_subprocess_exec(
                     self.executable,
                     *self.args, *args,
-                    stderr=asyncio.subprocess.PIPE)
-                _, stderr = await proc.communicate()
+                    stderr=asyncio.subprocess.PIPE,
+                    stdout=stdout)
+                out, err = await proc.communicate()
 
                 rc = proc.returncode
                 if rc:
-                    raise ProcessError(stderr.decode())
-                return rc
+                    raise ProcessError(err.decode())
+                return rc, out, err
             else:
-                return 0
+                return 0, None, None
 
         return await do_run()
