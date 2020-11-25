@@ -17,6 +17,16 @@ from .target import Target
 from .utils.decorators import classproperty, collectable
 
 
+def load_project(path=Path.cwd(), name=None):
+    assert path.is_dir()
+    if not name:
+        name = path.name
+    spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.project
+
+
 class Installation:
     libraries = 'lib'
     archives = 'lib'
@@ -325,10 +335,7 @@ class Project:
                 raise RuntimeError('Recursive project inclusion is not allowed')
             return project  # already included
 
-        spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        subproject = module.project
+        subproject = load_project(path, name)
         Project.current_project = self
         self._subprojects.add(subproject)
         return subproject
@@ -388,8 +395,5 @@ def root_project() -> Project:
     if not Project.root_project:
         # project is not set means we are being called from conan
         # just try to load project.py from cwd
-        spec = importlib.util.spec_from_file_location('cpppm-project', Path.cwd().joinpath('project.py'))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        Project.root_project = module.project
+        Project.root_project = load_project()
     return Project.root_project
