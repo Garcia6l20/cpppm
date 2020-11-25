@@ -13,10 +13,18 @@ jobs:
       matrix:
         config:
           - {
-            name: "Ubuntu 20.04",
+            name: "Ubuntu 20.04 (gcc)",
             os: ubuntu-20.04,
-            cc: "gcc",
-            cxx: "g++",
+            cc: gcc,
+            cxx: g++,
+            libcxx: libstdc++11
+          }
+          - {
+            name: "Ubuntu 20.04 (clang)",
+            os: ubuntu-20.04,
+            cc: clang,
+            cxx: clang++,
+            libcxx: libc++
           }
 
     steps:
@@ -35,5 +43,5 @@ jobs:
       - name: Build examples
         shell: bash
         run: |
-          ./examples/project.py config set cc=${{ matrix.config.cc }} cxx=${{ matrix.config.cxx }}
+          ./examples/project.py config set cc=${{ matrix.config.cc }} cxx=${{ matrix.config.cxx }} libcxx=${{ matrix.config.libcxx }}
           ./examples/project.py -d test
