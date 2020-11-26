@@ -1,7 +1,6 @@
 import platform
 from pathlib import Path
 
-from .build.compiler import get_compiler
 from .target import Target
 from .utils import Runner
 

@@ -110,12 +110,12 @@ class ConanFile(ConanConanFile):
             del self.options.fPIC
 
     def build(self):
-        loop = asyncio.new_event_loop()
+        loop = asyncio.get_event_loop()
         ConanFile.project.install_requirements()
         loop.run_until_complete(ConanFile.project.build())
 
     def package(self):
-        loop = asyncio.new_event_loop()
+        loop = asyncio.get_event_loop()
         loop.run_until_complete(ConanFile.project.install(self.package_folder))
 
     def package_info(self):
