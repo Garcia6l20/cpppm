@@ -10,9 +10,12 @@ from . import _config_option, _logger
 from .build.compiler import Compiler
 from .project import current_project, root_project, Project
 from .library import Library
+from .toolchains import available_toolchains, _toolchain_finders
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-@click.group(invoke_without_command=True)
+@click.group(invoke_without_command=True, context_settings=CONTEXT_SETTINGS)
 @click.option('--verbose', '-v', is_flag=True, help='Let me talk about me.')
 @click.option('--out-directory', '-o', default=None,
               help="Build directory, generated files should go there.")
@@ -57,13 +60,39 @@ async def install_requirements():
     root_project().install_requirements()
 
 
+@cli.group('toolchain')
+def toolchain_group():
+    """Toolchain command group."""
+    pass
+
+
+@toolchain_group.command('names')
+async def toolchain_names():
+    """Show handled toolchain names."""
+    for name in _toolchain_finders.keys():
+        print(name)
+
+
+@toolchain_group.command('list')
+@click.argument('name', required=False)
+@click.argument('version', required=False)
+async def toolchain_list(name, version):
+    """Find available toolchains.
+
+    \b
+    NAME    toolchain name to search (eg.: gcc, clang).
+    VERSION version to match (eg.: '>=10.1')."""
+    for toolchain in available_toolchains(name, version):
+        print(f'{toolchain}')
+
+
 @cli.group('config')
-def config_cmd():
+def config_group():
     """Project configuration."""
     pass
 
 
-@config_cmd.command('set')
+@config_group.command('set')
 @click.argument('items', nargs=-1)
 @click.pass_context
 async def config_set(ctx, items):
@@ -73,7 +102,7 @@ async def config_set(ctx, items):
     config.save()
 
 
-@config_cmd.command('doc')
+@config_group.command('doc')
 @click.argument('items', nargs=-1)
 @click.pass_context
 async def config_doc(ctx, items):
@@ -82,7 +111,7 @@ async def config_doc(ctx, items):
     config.doc(*items)
 
 
-@config_cmd.command('show')
+@config_group.command('show')
 @click.argument('items', nargs=-1)
 @click.pass_context
 async def config_show(ctx, items):
