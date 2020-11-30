@@ -1,4 +1,5 @@
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -8,21 +9,39 @@ from semantic_version import SimpleSpec, Version
 from cpppm.detect import find_executables
 
 
+class ToolchainId:
+    expr = re.compile(r'(?P<name>\w+)-(?P<version>[\d\.]+)-(?P<arch>[\w\d]+)')
+
+    def __init__(self, id_):
+        m = ToolchainId.expr.match(id_)
+        if not m:
+            raise RuntimeError(f'Invalid toolchain id: {id_} (must match regex "{ToolchainId.expr!r}")')
+        self.name = m.group('name')
+        self.version = m.group('version')
+        self.arch = m.group('arch')
+
+
 class Toolchain:
-    def __init__(self, name, version, cc, cxx, as_, nm, ar, ld, strip, dbg):
+    def __init__(self, name, version, arch, cc, cxx, as_, ar, ld, nm=None, ex=None, strip=None, dbg=None):
         self.name = name
         self.version = version
+        self.arch = arch
         self.cc = cc
         self.cxx = cxx
         self.as_ = as_
         self.nm = nm
         self.ar = ar
         self.ld = ld
+        self.ex = ex
         self.strip = strip
         self.dbg = dbg
 
+    @property
+    def id(self):
+        return f'{self.name}-{self.version}-{self.arch}'
+
     def __str__(self):
-        return f'''{self.name} ({self.version})
+        return f'''{self.id}
 - cc: {self.cc}
 - cxx: {self.cxx}
 - as: {self.as_}
