@@ -23,7 +23,7 @@ class Config:
         'arch': '''Toolchain to use (default: Resolved automatically on first call)''',
         # 'cc': '''C compiler (default: 'cc')''',
         # 'cxx': '''C++ compiler (default: 'c++')''',
-        # 'libcxx': '''C++ standard library (default: 'libstdc++11')''',
+        'libcxx': '''C++ standard library (default: 'libstdc++11')''',
         'ccache': '''Use ccache if available (default: True)''',
     }
 
@@ -31,7 +31,7 @@ class Config:
         self.toolchain = None
         # self.cc = 'cc'
         # self.cxx = 'c++'
-        # self.libcxx = 'libstdc++11'
+        self.libcxx = None
         self.ccache = True
 
         self._id = 'default'
@@ -131,10 +131,12 @@ class Config:
         if self.toolchain is None:
             self.toolchain = toolchains.get_default()
         elif isinstance(self.toolchain, str):
-            self.toolchain = toolchains.get(self.toolchain)
+            self.toolchain = toolchains.get(self.toolchain, libcxx=self.libcxx)
         assert issubclass(type(self.toolchain), Toolchain)
         self._build_path = (
                 self._source_path / 'build' / f'{self.toolchain.id}').absolute()
+        self.libcxx = self.libcxx or self.toolchain.libcxx
+        # self.toolchain.libcxx = self.libcxx
 
 
 config = Config()

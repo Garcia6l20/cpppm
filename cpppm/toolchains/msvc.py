@@ -61,7 +61,7 @@ def _gen_msvc_cache(archs):
     return cache_data
 
 
-def find_msvc_toolchains(version=None, archs=None):
+def find_msvc_toolchains(version=None, archs=None, **kwargs):
     archs = archs or ['x86', 'x64']
     toolchains = set()
     cache_ = cache.build_root / 'cpppm-msvc-toolchains.cache'

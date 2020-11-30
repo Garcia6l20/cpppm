@@ -3,17 +3,21 @@ import platform
 from cpppm.toolchains import toolchain
 
 
-def _find_gcc_toolchains(archs=None, version=None):
-    return toolchain.find_unix_toolchains('gcc', 'g++', 'gdb', archs=archs, version=version)
+def _find_gcc_toolchains(archs=None, version=None, **kwargs):
+    return toolchain.find_unix_toolchains('gcc', 'g++', 'gdb', archs=archs, version=version, **kwargs)
 
 
-def _find_clang_toolchains(archs=None, version=None):
-    return toolchain.find_unix_toolchains('clang', 'clang++', 'lldb', tools_prefix='llvm', archs=archs, version=version)
+def _find_clang_toolchains(archs=None, version=None, **kwargs):
+    if 'libcxx' not in kwargs:
+        kwargs['libcxx'] = 'libc++'
+    return toolchain.find_unix_toolchains('clang', 'clang++', 'lldb', tools_prefix='llvm', archs=archs, version=version,
+                                          **kwargs)
 
 
 _toolchain_finders = dict()
 if platform.system() == 'Windows':
     from cpppm.toolchains import msvc
+
     _toolchain_finders['msvc'] = msvc.find_msvc_toolchains
 else:
     _toolchain_finders.update({
@@ -43,6 +47,6 @@ def get_default():
             return toolchain_
 
 
-def get(toolchain_id):
+def get(toolchain_id, **kwargs):
     id_ = toolchain.ToolchainId(toolchain_id)
-    return _toolchain_finders[id_.name](version=id_.version, archs=[id_.arch]).pop()
+    return _toolchain_finders[id_.name](version=id_.version, archs=[id_.arch], **kwargs).pop()

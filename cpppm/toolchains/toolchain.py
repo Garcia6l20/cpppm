@@ -37,7 +37,22 @@ class Toolchain:
         self.ex = ex
         self.strip = strip
         self.dbg = dbg
-        self.libcxx = libcxx
+        self.c_flags = []
+        self.cxx_flags = []
+        self.ld_flags = []
+        if libcxx:
+            m = re.match(r'(\w+c\+\+)(\d+)', libcxx)
+            if m:
+                self.libcxx = m.group(1)
+                self.libcxx_abi_version = m.group(2)
+            else:
+                self.libcxx = libcxx
+                self.libcxx_abi_version = ''
+            flag = f'-stdlib={self.libcxx}'
+            self.ld_flags.append(flag)
+            self.cxx_flags.append(flag)
+        else:
+            self.libcxx = None
         self.env = {
             'CC': str(self.cc),
             'CXX': str(self.cxx),
@@ -53,7 +68,7 @@ class Toolchain:
         profile_args = [f'compiler={self.name}',
                         f'compiler.version={self.conan_version}']
         if self.libcxx:
-            profile_args.append(f'compiler.libcxx={self.libcxx}')
+            profile_args.append(f'compiler.libcxx={self.libcxx}{self.libcxx_abi_version}')
         self.conan_profile = profile_from_args(None,
                                                profile_args,
                                                None, self.env_list, None, app.cache)
@@ -115,17 +130,17 @@ def _find_compiler_tool(tool_names, cc_path, compiler_id, tools_prefix=None):
 
 
 class UnixToolchain(Toolchain):
-    def __init__(self, compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix):
+    def __init__(self, compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs):
         super().__init__(compiler_id.name, compiler_id, arch, cc_path, cxx_path,
                          as_=cc_path,
                          nm=_find_compiler_tool('nm', cc_path, compiler_id, tools_prefix),
                          ar=_find_compiler_tool('ar', cc_path, compiler_id, tools_prefix),
                          ld=_find_compiler_tool(['gold', 'ld'], cc_path, compiler_id, tools_prefix),
                          strip=_find_compiler_tool('strip', cc_path, compiler_id, tools_prefix),
-                         dbg=_find_compiler_tool(debugger, cc_path, compiler_id, tools_prefix))
+                         dbg=_find_compiler_tool(debugger, cc_path, compiler_id, tools_prefix), **kwargs)
 
 
-def find_unix_toolchains(cc_name, cxx_name, debugger, archs=None, version=None, tools_prefix=None):
+def find_unix_toolchains(cc_name, cxx_name, debugger, archs=None, version=None, tools_prefix=None, **kwargs):
     toolchains = set()
     if archs is None:
         archs = [detect.build_arch()]
@@ -138,5 +153,5 @@ def find_unix_toolchains(cc_name, cxx_name, debugger, archs=None, version=None, 
             if not cxx_path.exists():
                 logging.warning(f'Cannot find cxx path for {cxx_name} (should be: "{cxx_path}")')
                 continue
-            toolchains.add(UnixToolchain(compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix))
+            toolchains.add(UnixToolchain(compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs))
     return toolchains

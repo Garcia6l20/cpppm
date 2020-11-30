@@ -68,9 +68,7 @@ class Compiler(Runner):
         force = force or Compiler.force
         self._logger.info(f'building {target}')
         output = target.build_path.absolute()
-        opts = {'-c'}
-        if self.is_clang():
-            opts.add(f'-stdlib={config.libcxx}')
+        opts = {'-c', *config.toolchain.cxx_flags}
         if pic:
             opts.add('-fPIC')
 
@@ -106,7 +104,7 @@ class Compiler(Runner):
             raise CompileError(err)
 
         if len(compilations):
-            opts = set()
+            opts = {*config.toolchain.ld_flags}
             if pic:
                 opts.add('-fPIC')
             output = target.bin_path.absolute()
@@ -132,7 +130,7 @@ class Compiler(Runner):
                     # executable
                     self._logger.info(f'linking {output.name}')
                     if self.is_clang():
-                        opts.add(f'-stdlib={config.libcxx}')
+                        opts.add(f'-stdlib={config.toolchain.libcxx}')
                     await self.run(*[str(o) for o in objs], *opts, '-o', str(output))
             except ProcessError as err:
                 raise CompileError(err)
