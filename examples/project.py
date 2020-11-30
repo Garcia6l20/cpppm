@@ -2,7 +2,6 @@
 
 from cpppm import Project, main
 
-
 project = Project('cpppm-examples', '0.0.0')
 
 project.license = 'MIT'

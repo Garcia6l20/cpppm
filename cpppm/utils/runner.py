@@ -21,7 +21,7 @@ class Runner:
         self.args = args or set()
 
     async def run(self, *args, cwd: Union[str, Path] = None, env: Dict = None, dry_run=False, recorder=None,
-                  stdout=None):
+                  stdout=None, always_return=False):
         if not cwd:
             cwd = self.cwd or Path.cwd()
         if not env:
@@ -46,7 +46,7 @@ class Runner:
                 out, err = await proc.communicate()
 
                 rc = proc.returncode
-                if rc:
+                if not always_return and rc:
                     raise ProcessError(err.decode())
                 return rc, out, err
             else:

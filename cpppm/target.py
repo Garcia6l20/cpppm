@@ -131,8 +131,8 @@ class Target:
                 return self._built
 
             outdated = await self.build_deps()
-            from cpppm.build.compiler import get_compiler
-            return await get_compiler().compile(self, force=outdated)
+            from cpppm.config import config
+            return await config.toolchain.cxx_compiler.compile(self, force=outdated)
 
     async def build_deps(self) -> bool:
         definitions = set()

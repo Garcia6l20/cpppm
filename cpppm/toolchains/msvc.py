@@ -85,11 +85,15 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
             compiler_id = detect_compiler_id(f'"{cl}"')
             os.chdir(here)
 
+            if version and not SimpleSpec(version).match(Version(compiler_id.version)):
+                continue
+
+            from cpppm.build.compiler import MsvcCompiler
             toolchains.add(Toolchain('msvc', compiler_id, arch, cl, cl,
                                      as_=as_,
-                                     ar=link,
-                                     ld=link,
-                                     ex=ex,
-                                     dbg=None))
-    return toolchains if version is None else {tc for tc in toolchains if
-                                               SimpleSpec(version).match(Version(tc.version))}
+                                     ar=ex,
+                                     link=link,
+                                     dbg=None,
+                                     cxx_flags=['/EHsc'],
+                                     compiler_class=MsvcCompiler))
+    return toolchains

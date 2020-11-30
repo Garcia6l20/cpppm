@@ -2,8 +2,7 @@ import asyncio
 import hashlib
 import re
 import shutil
-from pathlib import Path
-from typing import Union
+from abc import abstractmethod
 
 from cpppm import _get_logger
 from cpppm.config import config
@@ -14,25 +13,41 @@ class CompileError(ProcessError):
     pass
 
 
-class Compiler(Runner):
+class Compiler:
     force = False
     _include_pattern = re.compile(r'#include [<"](.+)[>"]')
 
-    def __init__(self, exe, ccache, *args, **kwargs):
+    def __init__(self, toolchain, *args, **kwargs):
+
+        assert hasattr(self, 'object_extension')
+        assert hasattr(self, 'static_extension')
+        assert hasattr(self, 'shared_extension')
+        assert hasattr(self, 'include_path_flag')
+        assert hasattr(self, 'lib_path_flag')
+        assert hasattr(self, 'lib_flag')
+        assert hasattr(self, 'define_flag')
+
         self.commands = list()
+        ccache = shutil.which('ccache') if config.ccache else None
+        self.toolchain = toolchain
+        self._logger = _get_logger(self, toolchain.id)
         if ccache:
-            super().__init__(ccache, args={exe, *args}, recorder=self.on_cmd, **kwargs)
-            self._logger = _get_logger(self, Path(exe).name)
+            self.cc_runner = Runner(ccache, args={str(toolchain.cc), *args}, recorder=self.on_cmd, **kwargs)
+            self.cxx_runner = Runner(ccache, args={str(toolchain.cxx), *args}, recorder=self.on_cmd, **kwargs)
+            self.ar_runner = Runner(ccache, args={str(toolchain.ar), *args}, recorder=self.on_cmd, **kwargs)
+            self.link_runner = Runner(ccache, args={str(toolchain.link), *args}, recorder=self.on_cmd, **kwargs)
             self._logger.info('using ccache')
         else:
-            super().__init__(exe, recorder=self.on_cmd, **kwargs)
-            self._logger = _get_logger(self, Path(exe).name)
+            self.cc_runner = Runner(toolchain.cc, args=args, recorder=self.on_cmd, **kwargs)
+            self.cxx_runner = Runner(toolchain.cxx, args=args, recorder=self.on_cmd, **kwargs)
+            self.ar_runner = Runner(toolchain.ar, args=args, recorder=self.on_cmd, **kwargs)
+            self.link_runner = Runner(toolchain.link, args=args, recorder=self.on_cmd, **kwargs)
 
     def on_cmd(self, cmd):
         self.commands.append(cmd)
 
     def is_clang(self):
-        return config.toolchain.name in {'clang', 'apple-clang'}
+        return self.toolchain.name in {'clang', 'apple-clang'}
 
     def source_deps(self, target, source):
         deps = set()
@@ -63,28 +78,42 @@ class Compiler(Runner):
             timestamp.parent.mkdir(exist_ok=True, parents=True)
             timestamp.touch(exist_ok=True)
 
+    @abstractmethod
+    async def compile_object(self, source, output_path, flags=None, pic=False, test=False):
+        pass
+
+    @abstractmethod
+    async def create_static_lib(self, output, objs, flags=None):
+        pass
+
+    @abstractmethod
+    async def create_shared_lib(self, output, objs, flags=None, pic=False):
+        pass
+
+    @abstractmethod
+    async def link_executable(self, output, objs, flags=None, pic=False):
+        pass
+
     async def compile(self, target: 'cpppm.target.Target', pic=True,
-                force=False):
+                      force=False):
         force = force or Compiler.force
         self._logger.info(f'building {target}')
         output = target.build_path.absolute()
-        opts = {'-c', *config.toolchain.cxx_flags}
-        if pic:
-            opts.add('-fPIC')
+        opts = set()
 
-        opts.update({f'-I{str(path)}' for path in target.include_dirs.absolute()})
+        opts.update({f'{self.include_path_flag}{str(path)}' for path in target.include_dirs.absolute()})
 
         for k, v in target.compile_definitions.items():
             if v is not None:
-                opts.add(f'-D{k}={v}')
+                opts.add(f'{self.define_flag}{k}={v}')
             else:
-                opts.add(f'-D{k}')
+                opts.add(f'{self.define_flag}{k}')
 
         opts.update(target.compile_options)
         objs = set()
         compilations = set()
         for source in target.compile_sources.absolute():
-            out = output / source.with_suffix('.o').name
+            out = output / source.with_suffix(self.object_extension).name
             objs.add(out)
             source_deps = self.source_deps(target, source)
             if force or not out.exists() or (source.lstat().st_mtime > out.lstat().st_mtime) \
@@ -92,8 +121,9 @@ class Compiler(Runner):
 
                 async def do_compile():
                     self._logger.info(f'compiling {out.name} ({target})')
-                    await self.run(*opts, str(source), '-o', str(out))
+                    await self.compile_object(source, output, opts, pic=pic)
                     self._update_deps_timestamps(target, source, source_deps)
+
                 compilations.add(do_compile())
             else:
                 self._logger.info(f'object {out} is up-to-date')
@@ -104,34 +134,30 @@ class Compiler(Runner):
             raise CompileError(err)
 
         if len(compilations):
-            opts = {*config.toolchain.ld_flags}
-            if pic:
-                opts.add('-fPIC')
+            opts = {*self.toolchain.link_flags}
             output = target.bin_path.absolute()
             output.parent.mkdir(exist_ok=True, parents=True)
-            opts.update({f'-L{str(d.absolute())}' for d in target.library_dirs})
+            opts.update({f'{self.lib_path_flag}{str(d.absolute())}' for d in target.library_dirs})
             for lib in target._all_libraries():
                 if isinstance(lib, str):
-                    opts.add(f'-l{lib}')
+                    opts.add(f'{self.lib_flag}{lib}')
                 elif not lib.is_header_only:
-                    # opts.add(f'-l{":" if "." in lib.bin_path.suffix else ""}{str(lib.bin_path.name)}')
-                    opts.add(f'-l{lib.name}')
+                    opts.add(f'{self.lib_flag}{lib.name}')
             try:
-                if str(output).endswith('.so'):
+                if str(output).endswith(self.shared_extension):
                     # shared library
                     self._logger.info(f'creating library {output.name}')
-                    await self.run('-shared', *opts, *[str(o) for o in objs], '-o', str(output))
-                elif str(output).endswith('.a'):
+                    await self.create_shared_lib(output, [str(o) for o in objs], list(opts), pic=pic)
+                elif str(output).endswith(self.static_extension):
                     # archive
                     self._logger.info(f'creating archive {output.name}')
-                    exe = Runner(shutil.which('ar'), recorder=self.on_cmd)
-                    await exe.run('rcs', str(output), *[str(o) for o in objs])
+                    await self.create_static_lib(str(output), [str(o) for o in objs], None)
                 else:
                     # executable
                     self._logger.info(f'linking {output.name}')
                     if self.is_clang():
                         opts.add(f'-stdlib={config.toolchain.libcxx}')
-                    await self.run(*[str(o) for o in objs], *opts, '-o', str(output))
+                    await self.link_executable(str(output), [str(o) for o in objs], list(opts), pic=pic)
             except ProcessError as err:
                 raise CompileError(err)
 
@@ -139,16 +165,69 @@ class Compiler(Runner):
         return target._built
 
 
-def get_compiler(name: Union[str, Path] = None):
-    ccache = shutil.which('ccache') if config.ccache else None
+class UnixCompiler(Compiler):
 
-    if not name:
-        cc = str(config.toolchain.cxx)
-        exe = shutil.which(cc)
-    else:
-        cc = Path(name)
-        if cc.is_absolute():
-            exe = cc
-        else:
-            exe = shutil.which(str(cc))
-    return Compiler(exe, ccache)
+    def __init__(self, toolchain, *args, **kwargs):
+        self.object_extension = '.o'
+        self.static_extension = '.a'
+        self.shared_extension = '.so'
+        self.include_path_flag = '-I'
+        self.lib_path_flag = '-L'
+        self.lib_flag = '-l'
+        self.define_flag = '-D'
+        super().__init__(toolchain, *args, **kwargs)
+
+    async def compile_object(self, source, output_path, flags=None, test=False, pic=False):
+        opts = self.toolchain.cxx_flags
+        if pic:
+            opts.append('-fPIC')
+        if flags:
+            opts.extend(flags)
+        out = output_path / source.with_suffix('.o').name
+        return await self.cxx_runner.run(*opts, '-c', str(source), '-o', str(out), always_return=test)
+
+    async def create_static_lib(self, output, objs, flags=None):
+        await self.ar_runner.run('rcs', str(output), objs)
+
+    async def create_shared_lib(self, output, objs, flags=None, pic=False):
+        flags = flags or []
+        if pic:
+            flags.append('-fPIC')
+        await self.link_runner.run('-shared', *flags, *objs, '-o', str(output))
+
+    async def link_executable(self, output, objs, flags=None, pic=False):
+        flags = flags or []
+        if pic:
+            flags.append('-fPIC')
+        await self.link_runner.run(*objs, *flags, '-o', str(output))
+
+
+class MsvcCompiler(Compiler):
+
+    def __init__(self, toolchain, *args, **kwargs):
+        self.object_extension = '.obj'
+        self.static_extension = '.lib'
+        self.shared_extension = '.dll'
+        self.include_path_flag = '/I'
+        self.lib_path_flag = '/LIBPATH:'
+        self.lib_flag = '/LIB'
+        self.define_flag = '/D'
+        super().__init__(toolchain, *args, **kwargs)
+
+    async def compile_object(self, source, output_path, flags=None, test=False, pic=False):
+        opts = self.toolchain.cxx_flags
+        if flags:
+            opts.extend(flags)
+        out = output_path / source.with_suffix(self.object_extension).name
+        return await self.cxx_runner.run(*opts, '/c', str(source), str(out), always_return=test)
+
+    async def create_static_lib(self, output, objs, flags=None):
+        await self.ar_runner.run(*objs, str(output))
+
+    async def create_shared_lib(self, output, objs, flags=None, pic=False):
+        flags = flags or []
+        await self.link_runner.run('/DLL', *flags, *objs, f'/OUT:{str(output)}')
+
+    async def link_executable(self, output, objs, flags=None, pic=False):
+        flags = flags or []
+        await self.link_runner.run(*flags, *objs, f'/OUT:{str(output)}')
