@@ -21,6 +21,7 @@ class Config:
     __docs = {
         'toolchain': '''Toolchain to use (default: Resolved automatically on first call)''',
         'arch': '''Toolchain to use (default: Resolved automatically on first call)''',
+        'build_type': '''Build type (default: Release, accepted values: Release, Debug, RelWithDebInfo, MinSizeRel)''',
         # 'cc': '''C compiler (default: 'cc')''',
         # 'cxx': '''C++ compiler (default: 'c++')''',
         'libcxx': '''C++ standard library (default: 'libstdc++11')''',
@@ -29,8 +30,7 @@ class Config:
 
     def __init__(self):
         self.toolchain = None
-        # self.cc = 'cc'
-        # self.cxx = 'c++'
+        self.build_type = 'Release'
         self.libcxx = None
         self.ccache = True
 
@@ -134,8 +134,9 @@ class Config:
             self.toolchain = toolchains.get(self.toolchain, libcxx=self.libcxx)
         assert issubclass(type(self.toolchain), Toolchain)
         self._build_path = (
-                self._source_path / 'build' / f'{self.toolchain.id}').absolute()
+                self._source_path / 'build' / f'{self.toolchain.id}-{self.build_type}').absolute()
         self.libcxx = self.libcxx or self.toolchain.libcxx
+        self.toolchain.build_type = self.build_type
         # self.toolchain.libcxx = self.libcxx
 
 

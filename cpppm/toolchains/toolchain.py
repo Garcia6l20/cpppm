@@ -1,6 +1,7 @@
 import logging
 import re
 import shutil
+from abc import abstractmethod
 from pathlib import Path
 
 from conans.client.conf.compiler_id import detect_compiler_id
@@ -41,6 +42,9 @@ class Toolchain:
         self.cxx_flags = cxx_flags or []
         self.link_flags = link_flags or []
         self.compiler_class = compiler_class
+        self._build_type = None
+        self.conan_profile = None
+        self.conan_settings = None
         if libcxx:
             m = re.match(r'(\w+c\+\+)(\d+)', libcxx)
             if m:
@@ -65,24 +69,47 @@ class Toolchain:
         for k, v in self.env.items():
             self.env_list.append(f'{k}={v}')
 
-        from cpppm import get_conan
-        from conans.client.profile_loader import profile_from_args
-        app = get_conan().app
-        profile_args = [f'compiler={self.name}',
-                        f'compiler.version={self.conan_version}']
-        if self.libcxx:
-            profile_args.append(f'compiler.libcxx={self.libcxx}{self.libcxx_abi_version}')
-        self.conan_profile = profile_from_args(None,
-                                               profile_args,
-                                               None, self.env_list, None, app.cache)
-        self.conan_settings = self.conan_profile.settings
-
     @property
     def conan_version(self):
         if self.compiler_id.minor == 0:
             return self.compiler_id.major
         else:
             return self.compiler_id.major_minor
+
+    @property
+    def build_type(self):
+        return self._build_type
+
+    def apply_build_type(self, value):
+        flags = []
+        if value == 'Release':
+            flags.extend({'-O3', '-DNDEBUG'})
+        elif value == 'Debug':
+            flags.append('-g')
+        elif value == 'RelWithDebInfo':
+            flags.extend({'-O2', '-g', '-DNDEBUG'})
+        elif value == 'MinSizeRel':
+            flags.extend({'-Os', '-DNDEBUG'})
+        self.cxx_flags.extend(flags)
+        self.c_flags.extend(flags)
+
+    @build_type.setter
+    def build_type(self, value):
+        self.apply_build_type(value)
+        self._build_type = value
+
+        from cpppm import get_conan
+        from conans.client.profile_loader import profile_from_args
+        app = get_conan().app
+        profile_args = [f'compiler={self.name}',
+                        f'compiler.version={self.conan_version}',
+                        f'build_type={self._build_type}']
+        if self.libcxx:
+            profile_args.append(f'compiler.libcxx={self.libcxx}{self.libcxx_abi_version}')
+        self.conan_profile = profile_from_args(None,
+                                               profile_args,
+                                               None, self.env_list, None, app.cache)
+        self.conan_settings = self.conan_profile.settings
 
     @property
     def version(self):
@@ -137,6 +164,7 @@ def _find_compiler_tool(tool_names, cc_path, compiler_id, tools_prefix=None):
 
 
 class UnixToolchain(Toolchain):
+
     def __init__(self, compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs):
         from cpppm.build.compiler import UnixCompiler
 
@@ -169,5 +197,12 @@ def find_unix_toolchains(cc_name, cxx_name, debugger, archs=None, version=None, 
             if not cxx_path.exists():
                 logging.warning(f'Cannot find cxx path for {cxx_name} (should be: "{cxx_path}")')
                 continue
-            toolchains.add(UnixToolchain(compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs))
+            toolchain = UnixToolchain(compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs)
+            if arch == 'x86_64':
+                toolchain.cxx_flags.append('-m64')
+                toolchain.c_flags.append('-m64')
+            else:
+                toolchain.cxx_flags.append('-m32')
+                toolchain.c_flags.append('-m32')
+            toolchains.add(toolchain)
     return toolchains
