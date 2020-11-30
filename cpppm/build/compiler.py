@@ -32,7 +32,7 @@ class Compiler(Runner):
         self.commands.append(cmd)
 
     def is_clang(self):
-        return config._conan_compiler[0] in {'clang', 'apple-clang'}
+        return config.toolchain.name in {'clang', 'apple-clang'}
 
     def source_deps(self, target, source):
         deps = set()
@@ -145,7 +145,7 @@ def get_compiler(name: Union[str, Path] = None):
     ccache = shutil.which('ccache') if config.ccache else None
 
     if not name:
-        cc = config.cxx
+        cc = str(config.toolchain.cxx)
         exe = shutil.which(cc)
     else:
         cc = Path(name)

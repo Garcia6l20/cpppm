@@ -247,17 +247,14 @@ class Project:
                 'options': self.requires_options,
             }))
 
-        settings = [f'{k}={v}' for k, v in Project.settings.items()]
+        settings = [f'{k}={v}' for k, v in config.toolchain.conan_settings.items()]
 
         conan_file = str(self.build_path / 'conanfile.txt')
 
         # infos, conan_file_data = conan.info(conan_file,
         #                                settings=settings, build=["outdated"], update=True)
         install_infos = conan.install(conan_file, cwd=self.build_path,
-                                      settings=settings, build=["outdated"], update=True, env={
-                                          f'CC={config.cc}',
-                                          f'CXX={config.cxx}',
-                                      })
+                                      settings=settings, build=["outdated"], update=True, env=config.toolchain.env_list)
 
         from cpppm.conans import PackageLibrary
 

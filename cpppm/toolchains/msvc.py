@@ -85,7 +85,7 @@ def find_msvc_toolchains(version=None, archs=None):
             compiler_id = detect_compiler_id(f'"{cl}"')
             os.chdir(here)
 
-            toolchains.add(Toolchain('msvc', compiler_id.version, arch, cl, cl,
+            toolchains.add(Toolchain('msvc', compiler_id, arch, cl, cl,
                                      as_=as_,
                                      ar=link,
                                      ld=link,

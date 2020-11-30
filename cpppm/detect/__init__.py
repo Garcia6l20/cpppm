@@ -14,6 +14,25 @@ class _Quiet:
         pass
 
 
+_os_arch = None
+
+
+def _get_os_arch():
+    global _os_arch
+    if _os_arch is None:
+        from conans.client.conf.detect import _detect_os_arch
+        result = list()
+        _detect_os_arch(result, _Quiet())
+        _os_arch = dict()
+        for k, v in result:
+            _os_arch[k] = v
+    return _os_arch
+
+
+def build_arch():
+    return _get_os_arch()['arch_build']
+
+
 def find_executables(searched_name, paths=None, regex=False, resolve=False):
     """Find executable list
     :paths: list of search paths (default: '$PATH')

@@ -3,12 +3,12 @@ import platform
 from cpppm.toolchains import toolchain
 
 
-def _find_gcc_toolchains(version=None):
-    return toolchain.find_unix_toolchains('gcc', 'g++', 'gdb', version=version)
+def _find_gcc_toolchains(archs=None, version=None):
+    return toolchain.find_unix_toolchains('gcc', 'g++', 'gdb', archs=archs, version=version)
 
 
-def _find_clang_toolchains(version=None):
-    return toolchain.find_unix_toolchains('clang', 'clang++', 'lldb', tools_prefix='llvm', version=version)
+def _find_clang_toolchains(archs=None, version=None):
+    return toolchain.find_unix_toolchains('clang', 'clang++', 'lldb', tools_prefix='llvm', archs=archs, version=version)
 
 
 _toolchain_finders = dict()
@@ -22,13 +22,13 @@ else:
     })
 
 
-def available_toolchains(name=None, version=None):
+def available_toolchains(name=None, version=None, archs=None):
     toolchains = set()
     if not name:
         for find in _toolchain_finders.values():
-            toolchains.update(find(version))
+            toolchains.update(find(version=version, archs=archs))
     else:
-        toolchains.update(_toolchain_finders[name](version))
+        toolchains.update(_toolchain_finders[name](version=version, archs=archs))
     return toolchains
 
 
@@ -45,5 +45,4 @@ def get_default():
 
 def get(toolchain_id):
     id_ = toolchain.ToolchainId(toolchain_id)
-    _toolchain_finders[toolchain](arch)
-    return None
+    return _toolchain_finders[id_.name](version=id_.version, archs=[id_.arch]).pop()

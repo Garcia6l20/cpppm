@@ -1,13 +1,20 @@
 import ast
 import json
-import platform
 import sys
+from typing import Any
 
-from conans.client.conf.detect import _get_compiler_and_version, _get_profile_compiler_version, detect_defaults_settings
 from conans.client.profile_loader import profile_from_args
 
 from . import get_conan, _config_option, toolchains, cache
 from .toolchains.toolchain import Toolchain
+
+
+class ConfigEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if hasattr(o, '__cache_save__'):
+            return o.__cache_save__()
+        else:
+            return super().default(o)
 
 
 class Config:
@@ -17,14 +24,14 @@ class Config:
         # 'cc': '''C compiler (default: 'cc')''',
         # 'cxx': '''C++ compiler (default: 'c++')''',
         # 'libcxx': '''C++ standard library (default: 'libstdc++11')''',
-        # 'ccache': '''Use ccache if available (default: True)''',
+        'ccache': '''Use ccache if available (default: True)''',
     }
 
     def __init__(self):
         self.toolchain = None
-        self.cc = 'cc'
-        self.cxx = 'c++'
-        self.libcxx = 'libstdc++11'
+        # self.cc = 'cc'
+        # self.cxx = 'c++'
+        # self.libcxx = 'libstdc++11'
         self.ccache = True
 
         self._id = 'default'
@@ -108,12 +115,13 @@ class Config:
             return True
         else:
             self._resolve_toolchain()
+            self.save()
             return False
 
     def save(self):
         path = self._path()
         path.parent.mkdir(exist_ok=True, parents=True)
-        json.dump(self._config_dict(), path.open('w'))
+        json.dump(self._config_dict(), path.open('w'), cls=ConfigEncoder)
 
     def _resolve_toolchain(self):
         if self.toolchain is None:
@@ -122,7 +130,7 @@ class Config:
             self.toolchain = toolchains.get(self.toolchain)
         assert issubclass(type(self.toolchain), Toolchain)
         self._build_path = (
-                         self._source_path / 'build' / f'{self.toolchain.id}').absolute()
+                self._source_path / 'build' / f'{self.toolchain.id}').absolute()
 
 
 config = Config()

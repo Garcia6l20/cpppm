@@ -76,13 +76,14 @@ async def toolchain_names():
 @toolchain_group.command('list')
 @click.argument('name', required=False)
 @click.argument('version', required=False)
-async def toolchain_list(name, version):
+@click.argument('arch', required=False, nargs=-1)
+async def toolchain_list(name, version, arch):
     """Find available toolchains.
 
     \b
     NAME    toolchain name to search (eg.: gcc, clang).
     VERSION version to match (eg.: '>=10.1')."""
-    for toolchain in available_toolchains(name, version):
+    for toolchain in available_toolchains(name, version, arch):
         print(f'{toolchain}')
 
 
