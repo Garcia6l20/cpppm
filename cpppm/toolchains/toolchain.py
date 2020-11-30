@@ -81,9 +81,13 @@ class Toolchain:
     def __cache_save__(self):
         return self.id
 
-    def __str__(self):
-        return f'''{self.id}
-- cc: {self.cc}
+    @classmethod
+    def __cache_load__(cls, id_):
+        from . import get
+        return get(id_)
+
+    def details(self):
+        return f'''- cc: {self.cc}
 - cxx: {self.cxx}
 - as: {self.as_}
 - nm: {self.nm}

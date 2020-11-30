@@ -68,9 +68,13 @@ class Config:
         for k, v in (item.split('=') for item in items):
             if not hasattr(self, k):
                 raise RuntimeError(f'No such configuration key {k}')
-            t = type(getattr(self, k))
+            current_attr = getattr(self, k)
+            t = type(current_attr)
             if t != str:
-                setattr(self, k, ast.literal_eval(v))
+                if hasattr(t, '__cache_load__'):
+                    setattr(self, k, t.__cache_load__(v))
+                else:
+                    setattr(self, k, ast.literal_eval(v))
             else:
                 setattr(self, k, v)
 

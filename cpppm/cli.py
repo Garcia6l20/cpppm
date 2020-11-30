@@ -74,22 +74,28 @@ async def toolchain_names():
 
 
 @toolchain_group.command('list')
+@click.option('-v', '--verbose', help='Verbose toolchains', is_flag=True)
 @click.argument('name', required=False)
 @click.argument('version', required=False)
 @click.argument('arch', required=False, nargs=-1)
-async def toolchain_list(name, version, arch):
+@click.pass_context
+async def toolchain_list(ctx, verbose, name, version, arch):
     """Find available toolchains.
 
     \b
     NAME    toolchain name to search (eg.: gcc, clang).
     VERSION version to match (eg.: '>=10.1')."""
-    for toolchain in available_toolchains(name, version, arch):
-        print(f'{toolchain}')
+    archs = arch if len(arch) else None
+    for toolchain in available_toolchains(name, version, archs):
+        current = toolchain.id == ctx.obj.toolchain.id
+        click.echo(f'{toolchain.id} {"(current)" if current else ""}')
+        if verbose:
+            click.echo(toolchain.details())
 
 
 @cli.group('config')
 def config_group():
-    """Project configuration."""
+    """Project configuration command group."""
     pass
 
 
