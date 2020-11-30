@@ -33,5 +33,6 @@ setuptools.setup(
         'conan>=1.31.2',
         'jinja2>=2.11.2',
         'nest-asyncio>=1.4.3',
+        'semantic-version>=2.8.5'
     ],
 )
