@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import shutil
 import sys
@@ -9,7 +8,6 @@ import click
 from . import _config_option, _logger
 from .build.compiler import Compiler
 from .project import current_project, root_project, Project
-from .library import Library
 from .toolchains import available_toolchains, _toolchain_finders
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -156,9 +154,9 @@ async def install(ctx, destination):
 
 
 @cli.command()
-async def package():
-    """Creates a conan package (experimental)."""
-    root_project().package()
+async def sync():
+    """Synchronize conan package recipe (conanfile.py)."""
+    root_project().pkg_sync()
 
 
 @cli.command()
@@ -167,23 +165,7 @@ async def package():
 async def test(ctx, target):
     """Runs the unit tests."""
     await ctx.invoke(build, target=target)
-    if target:
-        target = root_project().target(target)
-        assert isinstance(target, Library)
-        click.secho(f'Running {target} tests', fg='yellow')
-        await target.test()
-    else:
-        tests = set()
-        builds = set()
-        for lib in Project.all:
-            if isinstance(lib, Library):
-                for tst in lib.tests:
-                    builds.add(tst.build())
-                    tests.add(tst)
-        await asyncio.gather(*builds)
-        for tst in tests:
-            click.secho(f'Running {tst.name} test', fg='yellow')
-            await tst.run()
+    await root_project().test(target)
 
 
 @cli.command()

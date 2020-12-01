@@ -5,17 +5,17 @@ import asyncio
 import sys
 
 
-class conantestpackageProject(ConanFile):
-    name = 'conan-test-package'
-    # url = 'None'
-    version = 'None'
-    description = 'None'
-    license = 'None'
+class {{ project.title }}Project(ConanFile):
+    name = '{{project.package_name}}'
+    # url = '{{project.url}}'
+    version = '{{project.version}}'
+    description = '{{project.description}}'
+    license = '{{project.license}}'
     settings = {"os", "compiler", "build_type", "arch"}
-    options = {'fPIC': [True, False], 'shared': [True, False]}
-    requires = tuple({'cpppm-examples/0.0.0'})
-    build_requires = tuple(set())
-    default_options = {'fPIC': True, 'shared': False}
+    options = {{project.options}}
+    requires = tuple({{project.requires}})
+    build_requires = tuple({{project.build_requires}})
+    default_options = {{project.default_options}}
     no_copy_source = True
     exports_sources = '*', '!build/*', '!__pycache__/'
 
@@ -56,3 +56,4 @@ class conantestpackageProject(ConanFile):
     def test(self):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.project.test())
+

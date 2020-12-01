@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Union, cast, Any, Dict, Set
 
+import click
 from conans.model.requires import ConanFileReference
 
 from . import _jenv, _get_logger, get_conan
@@ -59,6 +60,8 @@ class Project:
         self.package_name = package_name
         self.version = version
         self.license = None
+        self.url = None
+        self.description = None
         self._logger = _get_logger(self, name)
         stack_trace = inspect.stack()
         module_frame = None
@@ -234,27 +237,26 @@ class Project:
     def uses_conan(self):
         return bool(len(self.conan_packages))
 
+    def pkg_sync(self):
+        conan_file = self.source_path / 'conanfile.py'
+        if not conan_file.exists() or conan_file.stat().st_mtime < self.script_path.stat().st_mtime:
+            self._logger.info("Updating conanfile.py")
+            open(conan_file, 'w').write(_jenv.get_template('conanfilev2.py.j2').render({'project': self}))
+        return conan_file
+
     def install_requirements(self):
         if not self.uses_conan:
             self._logger.info('project has no requirements')
             return
         conan = get_conan()
 
-        open(str(self.build_path / 'conanfile.txt'), 'w').write(
-            _jenv.get_template('conanfile.txt.j2').render({
-                'requires': self.requires,
-                'build_requires': self.build_requires,
-                'options': self.requires_options,
-            }))
-
         settings = [f'{k}={v}' for k, v in config.toolchain.conan_settings.items()]
 
-        conan_file = str(self.build_path / 'conanfile.txt')
+        conan_file = self.pkg_sync()
 
-        # infos, conan_file_data = conan.info(conan_file,
-        #                                settings=settings, build=["outdated"], update=True)
-        install_infos = conan.install(conan_file, cwd=self.build_path,
-                                      settings=settings, build=["outdated"], update=True, env=config.toolchain.env_list)
+        install_infos = conan.install(str(conan_file), cwd=self.build_path,
+                                      settings=settings, env=config.toolchain.env_list,
+                                      build=["outdated"], update=True)
 
         from cpppm.conans import PackageLibrary
 
@@ -319,6 +321,25 @@ class Project:
             if t:
                 return t
 
+    async def test(self, target=None):
+        if target:
+            target = self.target(target)
+            assert isinstance(target, Library)
+            click.secho(f'Running {target} tests', fg='yellow')
+            await target.test()
+        else:
+            tests = set()
+            builds = set()
+            for lib in Project.all:
+                if isinstance(lib, Library):
+                    for tst in lib.tests:
+                        builds.add(tst.build())
+                        tests.add(tst)
+            await asyncio.gather(*builds)
+            for tst in tests:
+                click.secho(f'Running {tst.name} test', fg='yellow')
+                await tst.run()
+
     def subproject(self, name: str, path: Union[str, Path] = None) -> 'Project':
         if path is None:
             path = self.source_path.joinpath(name)
@@ -377,13 +398,21 @@ class Project:
         await asyncio.gather(*installs)
 
     def package(self):
-        conanfile_path = self.source_path / 'conanfile.py'
-        self._logger.info("You have no conan file... I'm creating it for you !")
-        open(conanfile_path, 'w').write(_jenv.get_template('conanfile.py.j2').render({'project': self}))
+        # conanfile_path = self.source_path / 'conanfile.py'
+        # self._logger.info("You have no conan file... I'm creating it for you !")
+        # open(conanfile_path, 'w').write(_jenv.get_template('conanfilev2.py.j2').render({'project': self}))
+        #
+        # back_project = Project._root_project.source_path
+        # Project._root_project = None
+        # conan = get_conan()
+        # conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder,
+        #              options=[f'{k}={v}' for k, v in self.requires_options.items()])
+        # Project._root_project = root_back
+        pass
 
-        conan = get_conan()
-        conan.create(str(conanfile_path.absolute()), test_folder=self.test_folder,
-                     options=[f'{k}={v}' for k, v in self.requires_options.items()])
+    @property
+    def title(self):
+        return re.sub(r'\W+', '', self.name)
 
 
 def current_project() -> Project:

@@ -28,7 +28,7 @@ class PackageInfos:
             self._cpp_infos.update(d['cpp_info'])
         self.root = Path(self._cpp_infos['rootpath'])
         self.version = self._cpp_infos['version']
-        self.description = self._cpp_infos['description']
+        self.description = self._cpp_infos['description'] if 'description' in self._cpp_infos else None
         self.load(self._cpp_infos)
         if 'components' in self._cpp_infos:
             for comp in self._cpp_infos['components'].values():
@@ -93,6 +93,7 @@ class ConanFile(ConanConanFile):
     project: Project = root_project()
 
     name = project.package_name
+    # url = project.url
     version = project.version
     license = project.license
     settings = {"os", "compiler", "build_type", "arch"}
@@ -100,7 +101,8 @@ class ConanFile(ConanConanFile):
     requires = tuple(project.requires)
     build_requires = tuple(project.build_requires)
     default_options = project.default_options
-    no_copy_source = True
+    no_copy_source = False
+    exports_sources = '*'
 
     def deploy(self):
         self.copy("*", dst="bin", src="bin")
@@ -110,6 +112,7 @@ class ConanFile(ConanConanFile):
             del self.options.fPIC
 
     def build(self):
+        print(self.source_folder)
         loop = asyncio.get_event_loop()
         ConanFile.project.install_requirements()
         loop.run_until_complete(ConanFile.project.build())
@@ -121,3 +124,7 @@ class ConanFile(ConanConanFile):
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.bindirs = ['bin']
+
+    def test(self):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(ConanFile.project.test())

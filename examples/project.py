@@ -5,7 +5,8 @@ from cpppm import Project, main
 project = Project('cpppm-examples', '0.0.0')
 
 project.license = 'MIT'
-# project.test_folder = 'test_package'
+project.description = 'CPP Package Manager example project'
+project.url = 'https://github.com/Garcia6l20/cpppm'
 
 project.subproject('hello_cpppm')
 project.subproject('conan_requires')
