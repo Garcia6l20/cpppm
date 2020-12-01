@@ -53,17 +53,18 @@ class Toolchain:
             else:
                 self.libcxx = libcxx
                 self.libcxx_abi_version = ''
-            flag = f'-stdlib={self.libcxx}'
-            self.link_flags.append(flag)
-            self.cxx_flags.append(flag)
+            if self.compiler_id.name == 'clang':
+                flag = f'-stdlib={self.libcxx}'
+                self.link_flags.append(flag)
+                self.cxx_flags.append(flag)
         else:
             self.libcxx = None
         self.env = {
             'CC': str(self.cc),
             'CXX': str(self.cxx),
-            'CFLAGS': ':'.join(self.c_flags),
-            'CXXFLAGS': ':'.join(self.cxx_flags),
-            'LDFLAGS': ':'.join(self.link_flags)
+            'CFLAGS': ' '.join(self.c_flags),
+            'CXXFLAGS': ' '.join(self.cxx_flags),
+            'LDFLAGS': ' '.join(self.link_flags)
         }
         self.env_list = []
         for k, v in self.env.items():
@@ -170,7 +171,7 @@ class UnixToolchain(Toolchain):
 
         gold = _find_compiler_tool('gold', cc_path, compiler_id, tools_prefix)
         if gold:
-            if not 'link_flags' in kwargs:
+            if 'link_flags' not in kwargs:
                 kwargs['link_flags'] = []
             kwargs['link_flags'].append('-fuse-ld=gold')
 

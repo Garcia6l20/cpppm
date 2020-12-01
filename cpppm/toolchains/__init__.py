@@ -1,4 +1,5 @@
 import platform
+import re
 
 from cpppm.toolchains import toolchain
 
@@ -8,8 +9,6 @@ def _find_gcc_toolchains(archs=None, version=None, **kwargs):
 
 
 def _find_clang_toolchains(archs=None, version=None, **kwargs):
-    if 'libcxx' not in kwargs:
-        kwargs['libcxx'] = 'libc++'
     return toolchain.find_unix_toolchains('clang', 'clang++', 'lldb', tools_prefix='llvm', archs=archs, version=version,
                                           **kwargs)
 
