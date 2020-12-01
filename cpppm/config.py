@@ -17,19 +17,27 @@ class ConfigEncoder(json.JSONEncoder):
             return super().default(o)
 
 
+class ConfigItem:
+    def __init__(self, name, doc_, type_):
+        self.name = name
+        self.doc = doc_
+        self.type = type_
+
+
 class Config:
-    __docs = {
-        'toolchain': '''Toolchain to use (default: Resolved automatically on first call)''',
-        'arch': '''Toolchain to use (default: Resolved automatically on first call)''',
-        'build_type': '''Build type (default: Release, accepted values: Release, Debug, RelWithDebInfo, MinSizeRel)''',
-        # 'cc': '''C compiler (default: 'cc')''',
-        # 'cxx': '''C++ compiler (default: 'c++')''',
-        'libcxx': '''C++ standard library (default: 'libstdc++11')''',
-        'ccache': '''Use ccache if available (default: True)''',
+    __items = {
+        ConfigItem('toolchain', '''Toolchain to use (default: Resolved automatically on first call)''', Toolchain),
+        ConfigItem('arch', '''Arch to use (default: Resolved automatically on first call)''', str),
+        ConfigItem('build_type',
+                   '''Build type (default: Release, accepted values: Release, Debug, RelWithDebInfo, MinSizeRel)''',
+                   str),
+        ConfigItem('libcxx', '''C++ standard library (default: 'libstdc++11')''', str),
+        ConfigItem('ccache', '''Use ccache if available (default: True)''', bool),
     }
 
     def __init__(self):
         self.toolchain = None
+        self.arch = None
         self.build_type = 'Release'
         self.libcxx = None
         self.ccache = True
@@ -51,28 +59,33 @@ class Config:
 
     def doc(self, *items):
         if not len(items):
-            items = self._config_dict().keys()
-        for k in items:
-            print(f'{k}: {Config.__docs[k]}')
+            items = Config.__items
+        for item in items:
+            print(f'{item.name}: {item.doc}')
 
     def show(self, *items):
         if not len(items):
-            items = self._config_dict().keys()
-        for k in items:
-            print(f'{k}: {getattr(self, k)}')
+            items = Config.__items
+        for item in items:
+            print(f'{item.name}: {getattr(self, item.name)}')
 
     def _path(self):
         return self._source_path / '.cpppm' / f'{self._id}.json'
+
+    @staticmethod
+    def _get_item(k):
+        for item in Config.__items:
+            if item.name == k:
+                return item
 
     def set(self, *items):
         for k, v in (item.split('=') for item in items):
             if not hasattr(self, k):
                 raise RuntimeError(f'No such configuration key {k}')
-            current_attr = getattr(self, k)
-            t = type(current_attr)
-            if t != str:
-                if hasattr(t, '__cache_load__'):
-                    setattr(self, k, t.__cache_load__(v))
+            item = self._get_item(k)
+            if item.type != str:
+                if hasattr(item.type, '__cache_load__'):
+                    setattr(self, k, item.type.__cache_load__(v))
                 else:
                     setattr(self, k, ast.literal_eval(v))
             else:
