@@ -161,6 +161,15 @@ class Project:
     def default_executable(self) -> Executable:
         return self._default_executable or self.main_target
 
+    @property
+    def last_modified(self):
+        mtime = self.script_path.stat().st_mtime
+        for sub in self.subprojects:
+            sub_mtime = sub.script_path.stat().st_mtime
+            if sub_mtime > mtime:
+                mtime = sub_mtime
+        return mtime
+
     @default_executable.setter
     def default_executable(self, exe: Executable):
         self._default_executable = exe
@@ -278,7 +287,7 @@ class Project:
 
     def pkg_sync(self):
         conan_file = self.source_path / 'conanfile.py'
-        if not conan_file.exists() or conan_file.stat().st_mtime < self.script_path.stat().st_mtime:
+        if not conan_file.exists() or conan_file.stat().st_mtime < self.last_modified:
             self._logger.info("Updating conanfile.py")
             open(conan_file, 'w').write(_jenv.get_template('conanfilev2.py.j2').render({'project': self}))
         return conan_file
@@ -374,11 +383,10 @@ class Project:
         else:
             tests = set()
             builds = set()
-            for lib in Project.all:
-                if isinstance(lib, Library):
-                    for tst in lib.tests:
-                        builds.add(tst.build())
-                        tests.add(tst)
+            for lib in self.libraries:
+                for tst in lib.tests:
+                    builds.add(tst.build())
+                    tests.add(tst)
             await asyncio.gather(*builds)
             for tst in tests:
                 click.secho(f'Running {tst.name} test', fg='yellow')
