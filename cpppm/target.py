@@ -99,15 +99,11 @@ class Target:
     def link_libraries(self) -> set:
         return self._link_libraries
 
-    def _all_libraries(self) -> set:
-        libs = set()
-        for lib in self._link_libraries:
-            if isinstance(lib, str):
-                libs.add(lib)
-            else:
-                libs.add(lib)
-                libs.update(lib._all_libraries())
-        return libs
+    @collectable(link_libraries, permissive=True)
+    def lib_dependencies(self) -> set:
+        if not hasattr(self, '_lib_dependencies'):
+            self._lib_dependencies = copy.copy(self._link_libraries)
+        return self._lib_dependencies
 
     @collectable(link_libraries, permissive=True)
     def compile_options(self) -> set:

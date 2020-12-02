@@ -4,6 +4,9 @@ from pathlib import Path
 import asyncio
 import sys
 
+import nest_asyncio
+nest_asyncio.apply()
+
 
 class {{ project.title }}Project(ConanFile):
     name = '{{project.package_name}}'
@@ -16,8 +19,9 @@ class {{ project.title }}Project(ConanFile):
     requires = tuple({{project.requires}})
     build_requires = tuple({{project.build_requires}})
     default_options = {{project.default_options}}
+    generators = 'json'
     no_copy_source = True
-    exports_sources = '*', '!build/*', '!__pycache__/'
+    exports_sources = '*', '!**build/*', '!**.cpppm/*', '!**dist/*', '!**__pycache__/*'
 
     def deploy(self):
         self.copy("*", dst="bin", src="bin")
@@ -32,7 +36,9 @@ class {{ project.title }}Project(ConanFile):
             print(f'build_folder: {self.build_folder}')
             print(f'source_folder: {self.source_folder}')
             sys.path.append(self.source_folder)
-            self.__project__ = load_project(Path(self.source_folder))
+            self.__project__ = load_project(Path(self.source_folder),
+                                            source_path=Path(self.source_folder),
+                                            build_path=Path(self.build_folder))
         return self.__project__
 
     def build(self):

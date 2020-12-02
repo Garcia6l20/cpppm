@@ -8,7 +8,7 @@ from jinja2 import Environment, PackageLoader
 
 import os
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG if 'CPPPM_DEBUG' in os.environ else logging.INFO)
 
 _logger = logging.getLogger('cpppm')
 

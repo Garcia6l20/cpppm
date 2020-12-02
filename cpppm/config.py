@@ -49,9 +49,9 @@ class Config:
         self._profile = None
         self._settings = None
 
-    def init(self, source_path):
+    def init(self, source_path, build_root=None):
         self._source_path = source_path
-        cache.build_root = self._source_path / 'build'
+        cache.build_root = build_root or self._source_path / 'build'
         self.load()
 
     def _config_dict(self):

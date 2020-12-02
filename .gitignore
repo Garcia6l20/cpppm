@@ -5,6 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
+*.o
+*.a
+
+# CPPPM cache
+.cpppm/
 
 # Distribution / packaging
 .Python

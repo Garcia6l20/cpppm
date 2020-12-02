@@ -138,7 +138,7 @@ class Compiler:
             output = target.bin_path.absolute()
             output.parent.mkdir(exist_ok=True, parents=True)
             opts.update({f'{self.lib_path_flag}{str(d.absolute())}' for d in target.library_dirs})
-            for lib in target._all_libraries():
+            for lib in target.lib_dependencies:
                 if isinstance(lib, str):
                     opts.add(f'{self.lib_flag}{lib}')
                 elif not lib.is_header_only:

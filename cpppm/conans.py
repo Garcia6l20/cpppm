@@ -11,7 +11,7 @@ nest_asyncio.apply()
 
 class PackageInfos:
 
-    def __init__(self, raw):
+    def __init__(self, data):
 
         self.include_dirs = set()
         self.lib_dirs = set()
@@ -20,51 +20,36 @@ class PackageInfos:
         self.bin_dirs = set()
         self.build_dirs = set()
         self.defines = dict()
-
-        self._raw = raw
-        self.name = self.recipe['name']
-        self._cpp_infos = dict()
-        for d in self.packages:
-            self._cpp_infos.update(d['cpp_info'])
-        self.root = Path(self._cpp_infos['rootpath'])
-        self.version = self._cpp_infos['version']
-        self.description = self._cpp_infos['description'] if 'description' in self._cpp_infos else None
-        self.load(self._cpp_infos)
-        if 'components' in self._cpp_infos:
-            for comp in self._cpp_infos['components'].values():
-                self.load(comp)
-
-    @property
-    def recipe(self):
-        return self._raw['recipe']
-
-    @property
-    def packages(self):
-        return self._raw['packages']
-
-    @property
-    def deps(self):
-        return self._cpp_infos['public_deps'] if 'public_deps' in self._cpp_infos else {}
+        self.name = data['name']
+        self.version = data['version']
+        self.root = Path(data['rootpath'])
+        self.description = data['description'] if 'description' in data else None
+        self.load(data)
+        self.header_only = self.name not in data['libs']
 
     def load(self, comp):
-        if 'includedirs' in comp:
-            self.include_dirs.update(comp['includedirs'])
-        if 'libdirs' in comp:
-            self.lib_dirs.update(comp['libdirs'])
+        if 'include_paths' in comp:
+            self.include_dirs.update(comp['include_paths'])
+        if 'lib_paths' in comp:
+            self.lib_dirs.update(comp['lib_paths'])
         if 'libs' in comp:
-            self.libs.update(comp['libs'])
+            self.libs.update([lib for lib in comp['libs'] if lib != self.name])
         if 'system_libs' in comp:
             self.libs.update(comp['system_libs'])
-        if 'resdirs' in comp:
-            self.res_dirs.update(comp['resdirs'])
-        if 'bindirs' in comp:
-            self.bin_dirs.update(comp['bindirs'])
-        if 'builddirs' in comp:
-            self.build_dirs.update(comp['builddirs'])
+        if 'res_paths' in comp:
+            self.res_dirs.update(comp['res_paths'])
+        if 'bin_paths' in comp:
+            self.bin_dirs.update(comp['bin_paths'])
+        if 'build_paths' in comp:
+            self.build_dirs.update(comp['build_paths'])
         if 'defines' in comp:
             for definition in comp['defines']:
                 tmp = definition.split('=')
                 self.defines[tmp[0]] = tmp[1] if len(tmp) > 1 else None
+
+    @property
+    def conan_ref(self):
+        return f'{self.name}/{self.version}@'
 
 
 class PackageLibrary(Library):
@@ -78,12 +63,17 @@ class PackageLibrary(Library):
         self.library_dirs = {self._infos.root / p for p in self._infos.lib_dirs}
 
     def resolve_deps(self):
-        for dep in self._infos.deps:
-            self.link_libraries = Project._pkg_libraries[dep]
+        # for dep in self._infos.deps:
+        #     self.link_libraries = Project._pkg_libraries[dep]
+        pass
+
+    @property
+    def conan_ref(self):
+        return self._infos.conan_ref
 
     @property
     def is_header_only(self):
-        return self.name not in self._infos.libs
+        return self._infos.header_only
 
     async def build(self):
         return False

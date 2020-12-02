@@ -97,6 +97,28 @@ Commands:
   test                  Runs the unit tests.
 ```
 
+### Conan biding
+
+`cpppm` is tidally coupled to `conan` and can be used as is to create
+packages.
+
+When you add requirements to your project a `conanfile.py` appears side by side
+with you `project.py`.
+It is used to install your dependencies or to allow conan to interact with your project.
+
+The generated `conanfile.py` might not be edited or it should be automatically re-generated.
+
+So, regular `conan` process applies directly to your project.
+
+```bash
+cd examples
+conan create .
+conan upload cpppm-examples -r my_repo
+```
+
+User of your generated package should be able to use it with all build-systems
+handled by conan and obviously with `cpppm` (see [test_package](./test_package)).
+
 ### Documentation
 
 No documentation yet...

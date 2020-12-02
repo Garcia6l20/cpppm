@@ -1,6 +1,9 @@
 import asyncio
+import configparser
 import importlib.util
 import inspect
+import json
+import os
 import re
 import shutil
 import sys
@@ -18,16 +21,34 @@ from .library import Library
 from .target import Target
 from .utils.decorators import classproperty, collectable
 
+__external_load = None
 
-def load_project(path=Path.cwd(), name=None):
+
+def _get_external_load():
+    global __external_load
+    return __external_load
+
+
+def load_project(path=Path.cwd(), name=None, source_path=None, build_path=None):
+    global __external_load
     assert path.is_dir()
     if not name:
         name = path.name
     sys.path.append(path)  # add project's path to PYTHONPATH to allow easy extending
     spec = importlib.util.spec_from_file_location(name, path.joinpath('project.py'))
     module = importlib.util.module_from_spec(spec)
+    reset_external_load = __external_load == None
+    if source_path and build_path:
+        __external_load = {
+            'root_project': None,
+            'source_path': source_path,
+            'build_path': build_path,
+        }
     spec.loader.exec_module(module)
-    return module.project
+    project = module.project
+    if reset_external_load:
+        __external_load = None
+    return project
 
 
 class Installation:
@@ -45,7 +66,6 @@ class Project:
     projects: Set['Project'] = set()
     main_target: Target = None
     build_path: Path = None
-    __all_targets: Set[Target] = set()
     _pkg_libraries: Dict[str, 'cpppm.conans.PackageLibrary'] = dict()
 
     # export commands from CMake (can be used by clangd)
@@ -53,7 +73,9 @@ class Project:
     verbose_makefile = False
     settings = None
 
-    def __init__(self, name, version: str = None, package_name=None, build_path=None):
+    _external = False
+
+    def __init__(self, name, version: str = None, package_name=None, source_path=None, build_path=None):
         self.name = name
         if not package_name:
             package_name = name
@@ -70,24 +92,40 @@ class Project:
                 module_frame = frame
                 break
         self.script_path = Path(module_frame[1]).resolve()
-        self._root_path = self.script_path.parent.absolute()
+        self._root_path = source_path or self.script_path.parent.absolute()
 
         # adjust output dir
+        external_load = _get_external_load()
         if not Project.root_project:
             self.build_relative = '.'
-            config.init(self.source_path)
+            if external_load:
+                external_load['root_project'] = self
+                config.init(external_load['source_path'], external_load['build_path'])
+            else:
+                config.init(self.source_path)
             Project.settings = config._settings
             self.build_path = build_path or config._build_path
             Project._root_project = self
         else:
             self._root_project = Project._root_project
-            self.build_relative = self.source_path.relative_to(Project.root_project.source_path)
-            self.build_path = (Project.root_project.build_path / self.build_relative).absolute()
+            if external_load is not None:
+                if external_load['root_project'] is None:
+                    external_load['root_project'] = self
+                    self.build_path = external_load['build_path']
+
+                self._root_project = external_load['root_project']
+                self._external = True
+                self.source_path.relative_to(external_load['source_path'])
+            self.build_relative = self.source_path.relative_to(
+                self._root_project.source_path)
+            self.build_path = build_path or (
+                    self._root_project.build_path / self.build_relative).absolute()
         self.build_path.mkdir(exist_ok=True, parents=True)
 
         self._logger.debug(f'Build dir: {self.build_path.absolute()}')
         self._logger.debug(f'Source dir: {self.source_path.absolute()}')
 
+        self._targets: Set[Target] = set()
         self._libraries: Set[Library] = set()
         self._executables: Set[Executable] = set()
         self._requires: Set[str] = set()
@@ -108,10 +146,6 @@ class Project:
 
         Project.projects.add(self)
         Project.current_project = self
-
-    @classproperty
-    def all(cls):
-        return cls.__all_targets
 
     @classproperty
     def root_project(cls) -> 'Project':
@@ -167,7 +201,7 @@ class Project:
         """Add an executable to the project"""
         executable = Executable(name, *self._target_paths(root), **kwargs)
         self._executables.add(executable)
-        Project.__all_targets.add(executable)
+        self._targets.add(executable)
         return executable
 
     def main_library(self, root: str = None, **kwargs) -> Library:
@@ -181,18 +215,23 @@ class Project:
         """Add a library to the project"""
         library = Library(name, *self._target_paths(root), **kwargs)
         self._libraries.add(library)
-        Project.__all_targets.add(library)
+        self._targets.add(library)
         return library
 
-    @property
-    def targets(self) -> Set[Target]:
-        targets: Set[Target] = self._libraries.copy()
-        targets.update(self._executables)
-        return targets
+    @collectable(subprojects)
+    def targets(self):
+        return self._targets
 
-    @staticmethod
-    def get_target(name):
-        for target in Project.__all_targets:
+    @collectable(subprojects)
+    def executables(self):
+        return self._executables
+
+    @collectable(subprojects)
+    def libraries(self):
+        return self._libraries
+
+    def get_target(self, name):
+        for target in self.targets:
             if target.name == name:
                 return target
 
@@ -248,36 +287,41 @@ class Project:
         if not self.uses_conan:
             self._logger.info('project has no requirements')
             return
+
         conan = get_conan()
 
         settings = [f'{k}={v}' for k, v in config.toolchain.conan_settings.items()]
+        # options = [f'{k}={v}' for k, v in self.requires_options.items()]
 
-        conan_file = self.pkg_sync()
+        if not self._external:
+            conan_file = self.pkg_sync()
+            _install_infos = conan.install(str(conan_file), cwd=self.build_path,
+                                           settings=settings, env=config.toolchain.env_list,
+                                           build=["outdated"], update=True)
 
-        install_infos = conan.install(str(conan_file), cwd=self.build_path,
-                                      settings=settings, env=config.toolchain.env_list,
-                                      build=["outdated"], update=True)
+        build_info = json.load(open(self.build_path / 'conanbuildinfo.json', 'r'))
 
         from cpppm.conans import PackageLibrary
 
-        for info in install_infos['installed']:
-            if info['recipe']['name'] not in Project._pkg_libraries:
+        for info in build_info['dependencies']:
+            if info['name'] not in Project._pkg_libraries:
                 pkg_lib = PackageLibrary(info)
                 Project._pkg_libraries[pkg_lib.name] = pkg_lib
-        for pkg_lib in Project._pkg_libraries.values():
-            pkg_lib.resolve_deps()
 
-        for target in Project.__all_targets:
+        # resolve inter-packages dependencies
+        for pkg_lib in Project._pkg_libraries.values():
+            deps, _conan_file = conan.info(pkg_lib.conan_ref)
+            for edge in deps.nodes:
+                if edge.name == pkg_lib.name:
+                    for dep in edge.dependencies:
+                        pkg_lib.link_libraries = Project._pkg_libraries[dep.dst.name]
+
+        # resolve targets dependencies
+        for target in self.targets:
             for lib in target.link_libraries:
-                if isinstance(lib, str):
+                if isinstance(lib, str) and lib in Project._pkg_libraries:
                     target._link_libraries.remove(lib)
                     target._link_libraries.add(Project._pkg_libraries[lib])
-
-    def conan_infos(self, pkg_name):
-        for installed in self._conan_infos['installed']:
-            if installed['recipe']['name'] == pkg_name:
-                for pkg in installed['packages']:
-                    return pkg['cpp_info']
 
     @property
     def is_root(self):
@@ -289,7 +333,7 @@ class Project:
 
         if not target:
             builds = set()
-            for target in self.all:
+            for target in self.targets:
                 builds.add(target.build())
             await asyncio.gather(*builds)
         else:
