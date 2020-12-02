@@ -138,7 +138,3 @@ dmypy.json
 
 # CMakeLists
 CMakeLists.txt
-
-# build-dirs
-build-*/
-

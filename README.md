@@ -129,13 +129,13 @@ using a python IDE to edit your project script (eg.: *Pycharm*) helps a lot (doc
 
 - [ ] ~~CMakeLists.txt generation~~ (no more using CMake)
 - [x] Project compilation
-- [x] ~~Build events~~ (useless), generators
+- [x] ~~Build events~~ (useless), generators (will probably be moved into generic Targets)
 - [x] Conan package dependencies management
 - [x] Executables invocation (automatically added to cli interface) 
 - [x] Customizable (you can do anything you can do with python)
 - [x] Cli customization (cou can add any `@cpppm.cli.command` that you want to add, see [click](https://click.palletsprojects.com/))
 - [x] Unit testing (basic support)
-- [ ] Conan package generation (almost working, needs more work)
+- [x] Conan package generation
 
 ## Contributing
 

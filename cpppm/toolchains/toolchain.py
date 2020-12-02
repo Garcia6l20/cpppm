@@ -147,6 +147,9 @@ class Toolchain:
 - dbg: {self.dbg}
 '''
 
+    def __repr__(self):
+        return f'{self.name}\n{self.details()}'
+
 
 def _find_compiler_tool(tool_names, cc_path, compiler_id, tools_prefix=None):
     if isinstance(tool_names, str):
