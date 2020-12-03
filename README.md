@@ -1,6 +1,9 @@
 # cpppm
 > CPP Project Manager
 
+![master](https://github.com/Garcia6l20/cpppm/workflows/build-examples/badge.svg?branch=master) (master)  
+![devel](https://github.com/Garcia6l20/cpppm/workflows/build-examples/badge.svg?branch=devel) (devel)
+
 `cpppm` is a C/C++ build-system/package manager (through `conan`) that focus on flexibility.
 
 While (most of) other build systems are jailing you into a re-invented scripting
