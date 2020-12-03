@@ -55,6 +55,18 @@ def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
 
 @cli.command()
 @click.pass_context
+async def interactive(ctx):
+    from IPython import embed
+    locals().update({'project': root_project()})
+    import asyncio
+    import nest_asyncio
+    loop = asyncio.get_event_loop()
+    nest_asyncio.apply(loop)
+    embed(using='asyncio')
+
+
+@cli.command()
+@click.pass_context
 async def shell(ctx):
     from click_shell import make_click_shell
     from click_shell import core as shell_core

@@ -31,7 +31,7 @@ class Target:
         self._compile_options = set()
         self._compile_definitions = dict()
         self.events: List[Event] = []
-        self._built = None
+        self._built = False
         self._build_lock = asyncio.Lock()
 
         if 'install' in kwargs:
@@ -123,7 +123,7 @@ class Target:
 
     async def build(self):
         async with self._build_lock:
-            if self._built is not None:
+            if self._built:
                 return self._built
 
             outdated = await self.build_deps()

@@ -291,23 +291,25 @@ class Project:
         if force or not conan_file.exists() or conan_file.stat().st_mtime < self.last_modified:
             self._logger.info("Updating conanfile.py")
             open(conan_file, 'w').write(_jenv.get_template('conanfilev2.py.j2').render({'project': self}))
-        return conan_file
-
-    def install_requirements(self):
-        if not self.uses_conan:
-            self._logger.info('project has no requirements')
-            return
 
         conan = get_conan()
 
         settings = [f'{k}={v}' for k, v in config.toolchain.conan_settings.items()]
-        # options = [f'{k}={v}' for k, v in self.requires_options.items()]
+        _install_infos = conan.install(str(conan_file), cwd=self.build_path,
+                                       settings=settings, env=config.toolchain.env_list,
+                                       build=["outdated"], update=True)
 
-        if not self._external:
-            conan_file = self.pkg_sync()
-            _install_infos = conan.install(str(conan_file), cwd=self.build_path,
-                                           settings=settings, env=config.toolchain.env_list,
-                                           build=["outdated"], update=True)
+        return conan_file
+
+    def install_requirements(self):
+
+        if not self.uses_conan:
+            self._logger.info('project has no requirements')
+            return
+
+        build_infos_path = self.build_path / 'conanbuildinfo.json'
+        if not build_infos_path.exists():
+            self.pkg_sync()
 
         build_info = json.load(open(self.build_path / 'conanbuildinfo.json', 'r'))
 
@@ -317,6 +319,8 @@ class Project:
             if info['name'] not in Project._pkg_libraries:
                 pkg_lib = PackageLibrary(info)
                 Project._pkg_libraries[pkg_lib.name] = pkg_lib
+
+        conan = get_conan()
 
         # resolve inter-packages dependencies
         for pkg_lib in Project._pkg_libraries.values():
@@ -340,6 +344,9 @@ class Project:
     async def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
         if target:
             target = target if isinstance(target, Target) else self.target(target)
+
+        for t in self.targets:
+            t._built = False
 
         if not target:
             builds = set()
