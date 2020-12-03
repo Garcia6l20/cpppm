@@ -257,3 +257,13 @@ async def run(ctx, target, args):
     """Runs the given TARGET with given ARGS."""
     await ctx.invoke(build, target=target)
     await root_project().run(target, *args)
+
+
+@cli.command()
+@click.argument("target")
+@click.argument("args", required=False, nargs=-1, default=None)
+@click.pass_context
+async def debug(ctx, target, args):
+    """Runs the given TARGET with given ARGS."""
+    await ctx.invoke(build, target=target)
+    await root_project().get_target(target).debug(*args)

@@ -121,14 +121,14 @@ class Target:
     def library_dirs(self) -> PathList:
         return self._library_dirs
 
-    async def build(self):
+    async def build(self, force=False):
         async with self._build_lock:
             if self._built:
                 return self._built
 
             outdated = await self.build_deps()
             from cpppm.config import config
-            return await config.toolchain.cxx_compiler.compile(self, force=outdated)
+            return await config.toolchain.cxx_compiler.compile(self, force=force or outdated)
 
     async def build_deps(self) -> bool:
         definitions = set()
