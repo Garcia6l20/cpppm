@@ -33,12 +33,11 @@ class {{ project.title }}Project(ConanFile):
     @property
     def project(self):
         if not hasattr(self, '__project__'):
-            print(f'build_folder: {self.build_folder}')
-            print(f'source_folder: {self.source_folder}')
             sys.path.append(self.source_folder)
             self.__project__ = load_project(Path(self.source_folder),
                                             source_path=Path(self.source_folder),
-                                            build_path=Path(self.build_folder))
+                                            build_path=Path(self.build_folder),
+                                            settings=self.settings)
         return self.__project__
 
     def build(self):

@@ -21,7 +21,7 @@ from .library import Library
 from .target import Target
 from .utils.decorators import classproperty, collectable
 
-__external_load = None
+__external_load: Union[None, Dict] = None
 
 
 def _get_external_load():
@@ -29,7 +29,7 @@ def _get_external_load():
     return __external_load
 
 
-def load_project(path=Path.cwd(), name=None, source_path=None, build_path=None):
+def load_project(path=Path.cwd(), name=None, source_path=None, build_path=None, settings=None):
     global __external_load
     assert path.is_dir()
     if not name:
@@ -43,6 +43,7 @@ def load_project(path=Path.cwd(), name=None, source_path=None, build_path=None):
             'root_project': None,
             'source_path': source_path,
             'build_path': build_path,
+            'settings': settings
         }
     spec.loader.exec_module(module)
     project = module.project
@@ -100,7 +101,7 @@ class Project:
             self.build_relative = '.'
             if external_load:
                 external_load['root_project'] = self
-                config.init(external_load['source_path'], external_load['build_path'])
+                config.init(external_load['source_path'], external_load['build_path'], settings=external_load['settings'])
             else:
                 config.init(self.source_path)
             Project.settings = config._settings
@@ -285,9 +286,9 @@ class Project:
     def uses_conan(self):
         return bool(len(self.conan_packages))
 
-    def pkg_sync(self):
+    def pkg_sync(self, force=False):
         conan_file = self.source_path / 'conanfile.py'
-        if not conan_file.exists() or conan_file.stat().st_mtime < self.last_modified:
+        if force or not conan_file.exists() or conan_file.stat().st_mtime < self.last_modified:
             self._logger.info("Updating conanfile.py")
             open(conan_file, 'w').write(_jenv.get_template('conanfilev2.py.j2').render({'project': self}))
         return conan_file

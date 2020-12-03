@@ -154,9 +154,10 @@ async def install(ctx, destination):
 
 
 @cli.command()
-async def sync():
+@click.option('-f', '--force', help='Force synchronization.', is_flag=True)
+async def sync(force):
     """Synchronize conan package recipe (conanfile.py)."""
-    root_project().pkg_sync()
+    root_project().pkg_sync(force)
 
 
 @cli.command()

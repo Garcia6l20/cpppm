@@ -60,4 +60,4 @@ jobs:
           conan remote add cpppm https://api.bintray.com/conan/${_CONAN_USERNAME}/cpppm
           conan user -p ${_CONAN_API_KEY} -r cpppm ${_CONAN_USERNAME}
           conan create .
-          conan upload cpppm-examples -r cpppm --all
+          conan upload -c cpppm-examples -r cpppm --all

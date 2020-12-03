@@ -49,10 +49,10 @@ class Config:
         self._profile = None
         self._settings = None
 
-    def init(self, source_path, build_root=None):
+    def init(self, source_path, build_root=None, settings=None):
         self._source_path = source_path
         cache.build_root = build_root or self._source_path / 'build'
-        self.load()
+        self.load(settings)
 
     def _config_dict(self):
         return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
@@ -91,47 +91,20 @@ class Config:
             else:
                 setattr(self, k, v)
 
-    def load(self):
+    def load(self, settings):
         intersection = _config_option.intersection(set(sys.argv))
         if intersection:
             self._id = sys.argv[sys.argv.index(intersection.pop()) + 1]
 
         path = self._path()
-
-        # class quiet:
-        #     def success(self, *args):
-        #         pass
-        #
-        #     def error(self, *args):
-        #         pass
-        #
-        #     def info(self, *args):
-        #         pass
-
-        # def resolve_compiler():
-        #     compiler, version = _get_compiler_and_version(quiet(), self.cc)
-        #     if platform.system() == 'Windows' and self.cc == 'cc':
-        #         return
-        #
-        #     version = _get_profile_compiler_version(compiler, version, quiet())
-        #     self._conan_compiler = (compiler, version)
-        #     app = get_conan().app
-        #     self._profile = profile_from_args(None,
-        #                                       [f'compiler={compiler}', f'compiler.version={version}',
-        #                                        f'compiler.libcxx={self.libcxx}'],
-        #                                       None, None, None, app.cache)
-        #     self._settings = self._profile.settings
-        #     self._build_path = (
-        #             self._source_path / 'build' / f'{compiler}-{version}-{self._settings["arch"]}').absolute()
-
         if path.exists():
             for k, v in json.load(path.open('r')).items():
                 setattr(self, k, v)
 
-            self._resolve_toolchain()
+            self._resolve_toolchain(settings)
             return True
         else:
-            self._resolve_toolchain()
+            self._resolve_toolchain(settings)
             self.save()
             return False
 
@@ -140,8 +113,13 @@ class Config:
         path.parent.mkdir(exist_ok=True, parents=True)
         json.dump(self._config_dict(), path.open('w'), cls=ConfigEncoder)
 
-    def _resolve_toolchain(self):
-        if self.toolchain is None:
+    def _resolve_toolchain(self, settings):
+        if settings:
+            id_ = f'{settings.get_safe("compiler")}-{settings.get_safe("compiler.version")}-{settings.get_safe("arch")}'
+            self.toolchain = toolchains.get(id_)
+            self.libcxx = settings.get_safe('compiler.libcxx')
+            self.build_type = settings.get_safe('build_type')
+        elif self.toolchain is None:
             self.toolchain = toolchains.get_default()
         elif isinstance(self.toolchain, str):
             self.toolchain = toolchains.get(self.toolchain, libcxx=self.libcxx)
@@ -150,7 +128,6 @@ class Config:
                 self._source_path / 'build' / f'{self.toolchain.id}-{self.build_type}').absolute()
         self.libcxx = self.libcxx or self.toolchain.libcxx
         self.toolchain.build_type = self.build_type
-        # self.toolchain.libcxx = self.libcxx
 
 
 config = Config()
