@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -20,6 +21,14 @@ from cpppm.toolchains.toolchain import Toolchain
 class VisualStudioToolchain:
     def __init__(self):
         pass
+
+
+def _get_vc_arch(arch):
+    m = re.match(r'x86_([\d]{2})', arch)
+    if m:
+        return f'x{m.group(1)}'
+    else:
+        return arch
 
 
 def _gen_msvc_cache(archs):
@@ -42,9 +51,11 @@ def _gen_msvc_cache(archs):
     cache_data = dict()
     for vcvarsall in find_executables('vcvarsall.bat', install_paths):
         for arch in archs:
+            vc_arch = _get_vc_arch(arch)
+
             script = tempfile.NamedTemporaryFile(suffix='.bat', delete=False)
             tmp_dir = Path(script.name).parent
-            content = f'call "{vcvarsall}" {arch}\r\n'
+            content = f'call "{vcvarsall}" {vc_arch}\r\n'
             for index, var in enumerate(vcvars.keys()):
                 content += f'echo {var}=%{var}% {">" if index == 0 else ">>"} {tmp_dir}/cpppm-vcvars-{arch}.dat\r\n'
             script.write(content.encode())
@@ -73,7 +84,12 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
         data = json.load(open(cache_, 'r'))
 
     for arch in archs:
-        vcvars = data[arch]
+        vc_arch = _get_vc_arch(arch)
+        if vc_arch not in data:
+            data.update(_gen_msvc_cache([vc_arch]))
+            json.dump(data, open(cache_, 'w'))
+
+        vcvars = data[vc_arch]
         paths = [p for p in vcvars['path'].split(';') if p.startswith(vcvars['VCInstallDir'])]
 
         for cl in find_executables('cl.exe', paths):
@@ -86,7 +102,7 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
             compiler_id = detect_compiler_id(f'"{cl}"')
             os.chdir(here)
 
-            if version and not SimpleSpec(version).match(Version(compiler_id.version)):
+            if not compiler_id.major or version and not SimpleSpec(version).match(Version(compiler_id.version)):
                 continue
 
             from cpppm.build.compiler import MsvcCompiler

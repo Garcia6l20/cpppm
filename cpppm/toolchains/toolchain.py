@@ -12,7 +12,7 @@ from cpppm.detect import find_executables
 
 
 class ToolchainId:
-    expr = re.compile(r'(?P<name>\w+)-(?P<version>[\d\.]+)-(?P<arch>[\w\d]+)')
+    expr = re.compile(r'(?P<name>[\w ]+)-(?P<version>[\d\.]+)-(?P<arch>[\w\d]+)')
 
     def __init__(self, id_):
         m = ToolchainId.expr.match(id_)

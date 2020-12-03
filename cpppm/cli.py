@@ -162,7 +162,7 @@ async def toolchain_list(ctx, verbose, name, version, arch):
     archs = arch if len(arch) else None
     for toolchain in available_toolchains(name, version, archs):
         current = toolchain.id == ctx.obj.toolchain.id
-        click.secho(f'{toolchain.id}', fg='green' if current else None)
+        click.secho(f'{toolchain.id} {"(current)" if current else ""}', fg='green' if current else None)
         if verbose:
             click.echo(toolchain.details())
 

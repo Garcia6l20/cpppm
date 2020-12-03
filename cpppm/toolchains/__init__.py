@@ -18,6 +18,7 @@ if platform.system() == 'Windows':
     from cpppm.toolchains import msvc
 
     _toolchain_finders['msvc'] = msvc.find_msvc_toolchains
+    _toolchain_finders['Visual Studio'] = msvc.find_msvc_toolchains
 else:
     _toolchain_finders.update({
         'gcc': _find_gcc_toolchains,
