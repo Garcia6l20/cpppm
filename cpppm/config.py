@@ -61,16 +61,19 @@ class Config:
     def keys(self):
         return [item.name for item in Config.__items]
 
+    @staticmethod
+    def _resolve_items(keys):
+        if not len(keys):
+            return Config.__items
+        else:
+            return [it for it in Config.__items if it.name in keys]
+
     def doc(self, *items):
-        if not len(items):
-            items = Config.__items
-        for item in items:
+        for item in self._resolve_items(items):
             print(f'{item.name}: {item.doc}')
 
     def show(self, *items):
-        if not len(items):
-            items = Config.__items
-        for item in items:
+        for item in self._resolve_items(items):
             print(f'{item.name}: {getattr(self, item.name)}')
 
     def _path(self):

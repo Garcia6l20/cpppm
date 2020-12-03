@@ -25,6 +25,10 @@ else:
     })
 
 
+def toolchain_keys():
+    return _toolchain_finders.keys()
+
+
 def available_toolchains(name=None, version=None, archs=None):
     toolchains = set()
     if not name:

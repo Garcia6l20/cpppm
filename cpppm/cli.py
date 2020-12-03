@@ -9,7 +9,7 @@ import click
 from . import _config_option, _logger
 from .build.compiler import Compiler
 from .project import current_project, root_project, Project
-from .toolchains import available_toolchains, _toolchain_finders
+from .toolchains import available_toolchains, toolchain_keys
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -143,13 +143,13 @@ def toolchain_group():
 @toolchain_group.command('names')
 async def toolchain_names():
     """Show handled toolchain names."""
-    for name in _toolchain_finders.keys():
+    for name in toolchain_keys():
         print(name)
 
 
 @toolchain_group.command('list')
 @click.option('-v', '--verbose', help='Verbose toolchains', is_flag=True)
-@click.argument('name', required=False)
+@click.argument('name', required=False, type=click.Choice(toolchain_keys()))
 @click.argument('version', required=False)
 @click.argument('arch', required=False, nargs=-1)
 @click.pass_context
@@ -162,7 +162,7 @@ async def toolchain_list(ctx, verbose, name, version, arch):
     archs = arch if len(arch) else None
     for toolchain in available_toolchains(name, version, archs):
         current = toolchain.id == ctx.obj.toolchain.id
-        click.echo(f'{toolchain.id} {"(current)" if current else ""}')
+        click.secho(f'{toolchain.id}', fg='green' if current else None)
         if verbose:
             click.echo(toolchain.details())
 
@@ -173,13 +173,13 @@ def config_group():
     pass
 
 
-def _ac_get_config_keys(ctx, _args, incomplete):
-    config = ctx.obj
-    return [k for k in config.keys if incomplete in k]
+def _ac_get_config_keys():
+    from cpppm.config import config
+    return config.keys
 
 
 @config_group.command('set')
-@click.argument('items', nargs=-1, autocompletion=_ac_get_config_keys)
+@click.argument('items', nargs=-1)
 @click.pass_context
 async def config_set(ctx, items):
     """Modify configuration value(s)."""
@@ -189,7 +189,7 @@ async def config_set(ctx, items):
 
 
 @config_group.command('doc')
-@click.argument('items', nargs=-1)
+@click.argument('items', nargs=-1, type=click.Choice(_ac_get_config_keys()))
 @click.pass_context
 async def config_doc(ctx, items):
     """Display configuration documentation."""
@@ -198,7 +198,7 @@ async def config_doc(ctx, items):
 
 
 @config_group.command('show')
-@click.argument('items', nargs=-1)
+@click.argument('items', nargs=-1, type=click.Choice(_ac_get_config_keys()))
 @click.pass_context
 async def config_show(ctx, items):
     """Show current configuration value(s)."""
@@ -264,6 +264,6 @@ async def run(ctx, target, args):
 @click.argument("args", required=False, nargs=-1, default=None)
 @click.pass_context
 async def debug(ctx, target, args):
-    """Runs the given TARGET with given ARGS."""
+    """Debug the given TARGET. ARGS args are passed to the configured debugger."""
     await ctx.invoke(build, target=target)
     await root_project().get_target(target).debug(*args)
