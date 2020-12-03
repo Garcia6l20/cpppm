@@ -45,11 +45,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install requirements
+      - name: Install requirements (Linux)
         shell: bash
         if: startsWith(matrix.config.os, 'windows') != true
         run: |
-          sudo apt-get install python3-pip
+          sudo apt-get install python3-pip python-is-python3
+          sudo python -m pip install .
+          sudo python -m pip install --upgrade conan
 
       - name: Set up Python ${{ matrix.python-version }}
         if: startsWith(matrix.config.os, 'windows')
@@ -57,7 +59,8 @@ jobs:
         with:
           python-version: 3.8
 
-      - name: Install cpppm
+      - name: Install requirements (Windows)
+        if: startsWith(matrix.config.os, 'windows')
         shell: bash
         run: |
           python -m pip install .
@@ -91,9 +94,9 @@ jobs:
         shell: bash
         run: |
           cd ./test_package
-          ./project.py config set toolchain=${{ matrix.config.compiler }}-${{ matrix.config.compiler_version }}-${{ matrix.config.arch }} \
+          python ./project.py config set toolchain=${{ matrix.config.compiler }}-${{ matrix.config.compiler_version }}-${{ matrix.config.arch }} \
                                   libcxx=${{ matrix.config.libcxx }}
-          ./project.py -d run
+          python ./project.py -d run
 
   clean:
     name: Cleanup conan remote

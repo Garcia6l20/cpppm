@@ -214,7 +214,7 @@ class UnixCompiler(Compiler):
         return [f'-L{d}' for d in link_dirs.absolute()]
 
     def make_link_option(self, libs):
-        return [f'-l:{lib}' for lib in libs]
+        return [f'-l{lib}' for lib in libs]
 
     async def compile_object(self, source, output_path, flags=None, test=False, pic=False):
         opts = self.toolchain.cxx_flags
@@ -226,19 +226,19 @@ class UnixCompiler(Compiler):
         return await self.cxx_runner.run(*opts, '-c', str(source), '-o', str(out), always_return=test)
 
     async def create_static_lib(self, output, objs, flags=None):
-        await self.ar_runner.run('rcs', str(output), objs)
+        await self.ar_runner.run('rcs', str(output), [str(o) for o in objs])
 
     async def create_shared_lib(self, output, objs, flags=None, pic=False, **kwargs):
         flags = flags or []
         if pic:
             flags.append('-fPIC')
-        await self.link_runner.run('-shared', *flags, *objs, '-o', str(output))
+        await self.link_runner.run('-shared', *flags, *[str(o) for o in objs], '-o', str(output))
 
     async def link_executable(self, output, objs, flags=None, pic=False):
         flags = flags or []
         if pic:
             flags.append('-fPIC')
-        await self.link_runner.run(*objs, *flags, '-o', str(output))
+        await self.link_runner.run(*[str(o) for o in objs], *flags, '-o', str(output))
 
 
 class MsvcCompiler(Compiler):

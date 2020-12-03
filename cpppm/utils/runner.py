@@ -48,7 +48,7 @@ class Runner:
 
                 rc = proc.returncode
                 if not always_return and rc:
-                    raise ProcessError(err.decode(os.device_encoding(sys.stderr.fileno())))
+                    raise ProcessError(err.decode(os.device_encoding(sys.stderr.fileno()) or 'utf-8'))
                 return rc, out, err
             else:
                 return 0, None, None

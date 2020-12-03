@@ -3,7 +3,7 @@
 #include <string>
 
 #ifndef _MSC_VER
-#define BASIC_API
+#define BASIC_API extern
 #else
 #ifdef BASIC_DLL_EXPORT
 #define BASIC_API __declspec(dllexport)
