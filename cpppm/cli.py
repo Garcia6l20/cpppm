@@ -1,6 +1,7 @@
 import logging
 import shutil
 import sys
+import traceback
 from pathlib import Path
 
 import click
@@ -49,7 +50,68 @@ def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
         Project.verbose_makefile = True
 
     if ctx.invoked_subcommand is None:
-        return ctx.invoke(run)
+        return ctx.invoke(shell)
+
+
+@cli.command()
+@click.pass_context
+async def shell(ctx):
+    from click_shell import make_click_shell
+    from click_shell import core as shell_core
+
+    import asyncio
+    import nest_asyncio
+    from functools import update_wrapper
+    loop = asyncio.get_event_loop()
+    nest_asyncio.apply(loop)
+
+    def get_invoke(command):
+        """
+        Get the Cmd main method from the click command
+        :param command: The click Command object
+        :return: the do_* method for Cmd
+        :rtype: function
+        """
+
+        assert isinstance(command, click.Command)
+
+        def invoke_(self, arg):  # pylint: disable=unused-argument
+            try:
+                import shlex
+                r = command.main(args=shlex.split(arg),
+                                 prog_name=command.name,
+                                 standalone_mode=False,
+                                 parent=self.ctx)
+                if asyncio.iscoroutine(r):
+                    loop.run_until_complete(r)
+            except click.ClickException as e:
+                # Show the error message
+                e.show()
+            except click.Abort:
+                # We got an EOF or Keyboard interrupt.  Just silence it
+                pass
+            except SystemExit:
+                # Catch this an return the code instead. All of click's help commands do a sys.exit(),
+                # and that's not ideal when running in a shell.
+                pass
+            except Exception as e:
+                traceback.print_exception(type(e), e, None)
+                shell_core.logger.warning(traceback.format_exc())
+
+            # Always return False so the shell doesn't exit
+            return False
+
+        invoke_ = update_wrapper(invoke_, command.callback)
+        invoke_.__name__ = 'do_%s' % command.name
+        return invoke_
+
+    # patch shell_core.get_invoke
+    shell_core.get_invoke = get_invoke
+
+    name = root_project().name
+    ctx.command = cli
+    sh = make_click_shell(ctx, prompt=f'{name} $ ', intro=f'Entering {name} shell...')
+    sh.cmdloop()
 
 
 @cli.command('install-requirements')
@@ -97,8 +159,13 @@ def config_group():
     pass
 
 
+def _ac_get_config_keys(ctx, _args, incomplete):
+    config = ctx.obj
+    return [k for k in config.keys if incomplete in k]
+
+
 @config_group.command('set')
-@click.argument('items', nargs=-1)
+@click.argument('items', nargs=-1, autocompletion=_ac_get_config_keys)
 @click.pass_context
 async def config_set(ctx, items):
     """Modify configuration value(s)."""

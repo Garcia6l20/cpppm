@@ -30,6 +30,7 @@ setuptools.setup(
     python_requires='>=3.8',
     install_requires=[
         'Click>=7.1.2',
+        'click-shell>=2.0',
         'conan>=1.31.2',
         'jinja2>=2.11.2',
         'nest-asyncio>=1.4.3',
