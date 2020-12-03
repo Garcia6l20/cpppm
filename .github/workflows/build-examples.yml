@@ -20,13 +20,17 @@ jobs:
           - {
             name: "Ubuntu 20.04 (gcc)",
             os: ubuntu-20.04,
-            toolchain: gcc-9.3-x86_64,
+            compiler: gcc,
+            compiler_version: 9.3,
+            arch: x86_64,
             libcxx: libstdc++11
           }
           - {
             name: "Ubuntu 20.04 (clang)",
             os: ubuntu-20.04,
-            toolchain: clang-10-x86_64,
+            compiler: clang,
+            compiler_version: 10,
+            arch: x86_64,
             libcxx: libc++
           }
 
@@ -47,7 +51,8 @@ jobs:
       - name: Build examples
         shell: bash
         run: |
-          ./examples/project.py config set toolchain=${{ matrix.config.toolchain }} libcxx=${{ matrix.config.libcxx }}
+          ./examples/project.py config set toolchain=${{ matrix.config.compiler }}-${{ matrix.config.compiler_version }}-${{ matrix.config.arch }} \
+                                           libcxx=${{ matrix.config.libcxx }}
           ./examples/project.py -d test
 
       - name: Conan package
@@ -59,5 +64,19 @@ jobs:
           cd ./examples
           conan remote add cpppm https://api.bintray.com/conan/${_CONAN_USERNAME}/cpppm
           conan user -p ${_CONAN_API_KEY} -r cpppm ${_CONAN_USERNAME}
-          conan create .
+          conan create . \
+              -s compiler=${{ matrix.config.compiler }} \
+              -s compiler.version=${{ matrix.config.compiler_version }} \
+              -s compiler.libcxx=${{ matrix.config.libcxx }}
+
           conan upload -c cpppm-examples -r cpppm --all
+          conan remove -f cpppm-examples
+
+      - name: Conan test package
+        shell: bash
+        run: |
+          cd ./test_package
+          conan create . \
+              -s compiler=${{ matrix.config.compiler }} \
+              -s compiler.version=${{ matrix.config.compiler_version }} \
+              -s compiler.libcxx=${{ matrix.config.libcxx }}
