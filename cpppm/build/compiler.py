@@ -60,7 +60,7 @@ class Compiler:
         for line in open(source.absolute(), 'r'):
             for m in re.finditer(Compiler._include_pattern, line):
                 include = m.group(1)
-                for p in target.include_dirs:
+                for p in target.include_dirs.absolute():
                     fullpath = (p / include)
                     if fullpath.exists():
                         deps.add(fullpath)
