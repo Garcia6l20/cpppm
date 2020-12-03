@@ -24,10 +24,8 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               help="Remove all stuff before processing the following command.")
 @click.option(*_config_option,
               help="Config name to use.", default='default')
-@click.option("--build-type", "-b", default="Release",
-              type=click.Choice(['Debug', 'Release'], case_sensitive=True), help="Build type, Debug or Release.")
 @click.pass_context
-def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
+def cli(ctx, verbose, out_directory, debug, clean, config):
     from .config import config as cpppm_config
     if not current_project().is_root:
         return
@@ -37,7 +35,6 @@ def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
             shutil.rmtree(out_directory)
     ctx.obj = cpppm_config
 
-    Project.build_type = build_type
     current_project().build_path.mkdir(exist_ok=True)
     if not current_project().build_path.exists():
         raise RuntimeError('Failed to create build directory: {build_directory}')
@@ -50,86 +47,91 @@ def cli(ctx, verbose, out_directory, debug, clean, config, build_type):
         Project.verbose_makefile = True
 
     if ctx.invoked_subcommand is None:
-        return ctx.invoke(shell)
+        return ctx.invoke(shell or run)
 
 
-@cli.command()
-@click.pass_context
-async def interactive(ctx):
-    from IPython import embed
-    locals().update({'project': root_project()})
-    import asyncio
-    import nest_asyncio
-    loop = asyncio.get_event_loop()
-    nest_asyncio.apply(loop)
-    embed(using='asyncio')
+try:
+    import IPython
+except ImportError:
+    pass
+
+if 'IPython' in sys.modules:
+    @cli.command()
+    @click.pass_context
+    async def interactive(ctx):
+        """Interactive python console with loaded project."""
+        locals().update({'project': root_project()})
+        import asyncio
+        import nest_asyncio
+        loop = asyncio.get_event_loop()
+        nest_asyncio.apply(loop)
+        IPython.embed(using='asyncio')
 
 
-@cli.command()
-@click.pass_context
-async def shell(ctx):
-    from click_shell import make_click_shell
-    from click_shell import core as shell_core
+try:
+    import click_shell
+except ImportError:
+    pass
 
-    import asyncio
-    import nest_asyncio
-    from functools import update_wrapper
-    loop = asyncio.get_event_loop()
-    nest_asyncio.apply(loop)
+if 'click_shell' in sys.modules:
+    @cli.command()
+    @click.pass_context
+    async def shell(ctx):
+        """Interactive shell (cli commands in shell mode)."""
 
-    def get_invoke(command):
-        """
-        Get the Cmd main method from the click command
-        :param command: The click Command object
-        :return: the do_* method for Cmd
-        :rtype: function
-        """
+        import asyncio
+        import nest_asyncio
+        from functools import update_wrapper
+        loop = asyncio.get_event_loop()
+        nest_asyncio.apply(loop)
 
-        assert isinstance(command, click.Command)
+        def get_invoke(command):
+            """
+            Get the Cmd main method from the click command
+            :param command: The click Command object
+            :return: the do_* method for Cmd
+            :rtype: function
+            """
 
-        def invoke_(self, arg):  # pylint: disable=unused-argument
-            try:
-                import shlex
-                r = command.main(args=shlex.split(arg),
-                                 prog_name=command.name,
-                                 standalone_mode=False,
-                                 parent=self.ctx)
-                if asyncio.iscoroutine(r):
-                    loop.run_until_complete(r)
-            except click.ClickException as e:
-                # Show the error message
-                e.show()
-            except click.Abort:
-                # We got an EOF or Keyboard interrupt.  Just silence it
-                pass
-            except SystemExit:
-                # Catch this an return the code instead. All of click's help commands do a sys.exit(),
-                # and that's not ideal when running in a shell.
-                pass
-            except Exception as e:
-                traceback.print_exception(type(e), e, None)
-                shell_core.logger.warning(traceback.format_exc())
+            assert isinstance(command, click.Command)
 
-            # Always return False so the shell doesn't exit
-            return False
+            def invoke_(self, arg):  # pylint: disable=unused-argument
+                try:
+                    import shlex
+                    r = command.main(args=shlex.split(arg),
+                                     prog_name=command.name,
+                                     standalone_mode=False,
+                                     parent=self.ctx)
+                    if asyncio.iscoroutine(r):
+                        loop.run_until_complete(r)
+                except click.ClickException as e:
+                    # Show the error message
+                    e.show()
+                except click.Abort:
+                    # We got an EOF or Keyboard interrupt.  Just silence it
+                    pass
+                except SystemExit:
+                    # Catch this an return the code instead. All of click's help commands do a sys.exit(),
+                    # and that's not ideal when running in a shell.
+                    pass
+                except Exception as e:
+                    traceback.print_exception(type(e), e, None)
+                    click_shell.core.logger.warning(traceback.format_exc())
 
-        invoke_ = update_wrapper(invoke_, command.callback)
-        invoke_.__name__ = 'do_%s' % command.name
-        return invoke_
+                # Always return False so the shell doesn't exit
+                return False
 
-    # patch shell_core.get_invoke
-    shell_core.get_invoke = get_invoke
+            invoke_ = update_wrapper(invoke_, command.callback)
+            invoke_.__name__ = 'do_%s' % command.name
+            return invoke_
 
-    name = root_project().name
-    ctx.command = cli
-    sh = make_click_shell(ctx, prompt=f'{name} $ ', intro=f'Entering {name} shell...')
-    sh.cmdloop()
+        # patch shell_core.get_invoke
+        click_shell.core.get_invoke = get_invoke
 
-
-@cli.command('install-requirements')
-async def install_requirements():
-    """Install conan requirements."""
-    root_project().install_requirements()
+        name = root_project().name
+        ctx.command = cli
+        sh = click_shell.make_click_shell(ctx, prompt=f'{name} $ ', intro=f'Entering {name} shell...')
+        sh.cmdloop()
 
 
 @cli.group('toolchain')
@@ -216,7 +218,6 @@ async def build(ctx, force, jobs, target):
     click.echo(f"Build directory: {str(root_project().build_path.absolute())}")
     click.echo(f"Project: {root_project().name}")
     Compiler.force = force
-    await ctx.invoke(install_requirements)
     rc = await root_project().build(target, jobs)
     if rc != 0:
         click.echo(f'Build failed with return code: {rc}')

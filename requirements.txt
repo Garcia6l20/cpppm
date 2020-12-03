@@ -1,8 +1,7 @@
 jinja2
 click
-click-shell
 conan
 nest_asyncio
 semantic_version
-aioconsole
+click-shell
 ipython

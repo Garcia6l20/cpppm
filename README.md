@@ -73,31 +73,29 @@ pip install --user cpppm
 
 Default commands can be listed with a regular help request:
 ```bash
-$ ./project.py --help
+$ ./project.py -h
 Usage: project.py [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  -v, --verbose                   Let me talk about me.
-  -o, --out-directory TEXT        Build directory, generated files should go
-                                  there.
+  -v, --verbose             Let me talk about me.
+  -o, --out-directory TEXT  Build directory, generated files should go there.
+  -d, --debug               Print extra debug information.
+  -c, --clean               Remove all stuff before processing the following
+                            command.
 
-  -d, --debug                     Print extra debug information.
-  -c, --clean                     Remove all stuff before processing the
-                                  following command.
-
-  -C, --config TEXT               Config name to use.
-  -b, --build-type [Debug|Release]
-                                  Build type, Debug or Release.
-  --help                          Show this message and exit.
+  -C, --config TEXT         Config name to use.
+  -h, --help                Show this message and exit.
 
 Commands:
-  build                 Builds the project.
-  config                Project configuration.
-  install               Installs targets to destination.
-  install-requirements  Install conan requirements.
-  package               Creates a conan package (experimental).
-  run                   Runs the given TARGET with given ARGS.
-  test                  Runs the unit tests.
+  build        Builds the project.
+  config       Project configuration command group.
+  install      Installs targets to destination.
+  interactive  Interactive python console with loaded project.
+  run          Runs the given TARGET with given ARGS.
+  shell        Interactive shell (cli commands in shell mode).
+  sync         Synchronize conan package recipe (conanfile.py).
+  test         Runs the unit tests.
+  toolchain    Toolchain command group.
 ```
 
 ### Conan biding
@@ -122,11 +120,71 @@ conan upload cpppm-examples -r my_repo
 User of your generated package should be able to use it with all build-systems
 handled by conan and obviously with `cpppm` (see [test_package](./test_package)).
 
-### Documentation
+### Shell
 
-No documentation yet...
-For API, check the examples (I'm trying to demonstrate all uses cases),
-using a python IDE to edit your project script (eg.: *Pycharm*) helps a lot (doc and completion).
+An interactive shell mode is provided with `click-shell`.
+To enable interactive shell, install `cpppm` interactive mode:
+```bash
+$ python -m pip install cpppm[interactive]
+```
+
+Then enter interactive shell:
+```bash
+$ ./project.py shell
+Entering cpppm-examples shell...
+cpppm-examples $ help
+Documented commands (type help <topic>):
+========================================
+build   install               interactive  shell  test     
+config  install-requirements  run          sync   toolchain
+
+Undocumented commands:
+======================
+exit  help  quit
+
+cpppm-examples $ build
+[... some output omitted ...]
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):building Executable[events]
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):compiling main.o (Executable[events])
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):linking events
+cpppm-examples $ run hello-cpppm
+Source directory: /home/sylvain/projects/cpppm/examples
+Build directory: /home/sylvain/projects/cpppm/examples/build/gcc-11-x86_64-Release
+Project: cpppm-examples
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):using ccache
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):building Executable[hello-cpppm]
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):object /home/sylvain/projects/cpppm/examples/build/gcc-11-x86_64-Release/hello_cpppm/main.o is up-to-date
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):using ccache
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):building Executable[hello-cpppm]
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):object /home/sylvain/projects/cpppm/examples/build/gcc-11-x86_64-Release/hello_cpppm/main.o is up-to-date
+Hello cpppm
+cpppm-examples $ quit
+```
+
+### Interactive console
+
+An interactive console mode is provided with `IPython`, but not installed automatically.
+To enable interactive console, install `cpppm` interactive mode:
+```bash
+$ python -m pip install cpppm[interactive]
+```
+
+Then enter interactive console:
+```bash
+$ ./project.py interactive
+Python 3.8.5 (default, Jul 28 2020, 12:59:40) 
+Type 'copyright', 'credits' or 'license' for more information
+IPython 7.19.0 -- An enhanced Interactive Python. Type '?' for help.
+
+In [1]: await project.get_target('hello-cpppm').run('world')
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):using ccache
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):building Executable[hello-cpppm]
+INFO:cpppm.UnixCompiler(gcc-11-x86_64):object /home/sylvain/projects/cpppm/examples/build/gcc-11-x86_64-Release/hello_cpppm/main.o is up-to-date
+Hello world
+Out[1]: (0, None, b'')
+
+In [2]:
+```
 
 ### Features
 

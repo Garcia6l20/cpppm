@@ -135,6 +135,7 @@ class Project:
         self._default_options: Dict[str, Any] = {"fPIC": True, "shared": False}
         self._build_modules: Set[str] = set()
         self._requires_options: Dict[str, Any] = dict()
+        self._conan_deps_resolved = False
 
         self._default_executable = None
         self._conan_infos = None
@@ -301,7 +302,10 @@ class Project:
 
         return conan_file
 
-    def install_requirements(self):
+    def resolve_dependencies(self):
+
+        if self._conan_deps_resolved:
+            return
 
         if not self.uses_conan:
             self._logger.info('project has no requirements')
@@ -337,11 +341,15 @@ class Project:
                     target._link_libraries.remove(lib)
                     target._link_libraries.add(Project._pkg_libraries[lib])
 
+        self._conan_deps_resolved = True
+
     @property
     def is_root(self):
         return self.build_path == config._build_path
 
     async def build(self, target: Union[str, Target] = None, jobs: int = None) -> int:
+        self.resolve_dependencies()
+
         if target:
             target = target if isinstance(target, Target) else self.target(target)
 

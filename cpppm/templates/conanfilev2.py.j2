@@ -42,7 +42,6 @@ class {{ project.title }}Project(ConanFile):
 
     def build(self):
         loop = asyncio.get_event_loop()
-        self.project.install_requirements()
         loop.run_until_complete(self.project.build())
 
     def imports(self):
