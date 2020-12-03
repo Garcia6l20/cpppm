@@ -79,3 +79,24 @@ jobs:
           ./project.py config set toolchain=${{ matrix.config.compiler }}-${{ matrix.config.compiler_version }}-${{ matrix.config.arch }} \
                                   libcxx=${{ matrix.config.libcxx }}
           ./project.py -d run
+
+  clean:
+    name: Cleanup conan remote
+    runs-on: ubuntu-20.04
+    needs: build
+    if: always()
+    steps:
+      - name: Install conan
+        shell: bash
+        run: |
+          sudo python3 -m pip install --upgrade conan
+
+      - name: Cleanup
+        shell: bash
+        env:
+          _CONAN_USERNAME: ${{ secrets.CONAN_USERNAME }}
+          _CONAN_API_KEY: ${{ secrets.CONAN_API_KEY }}
+        run: |
+          conan remote add cpppm https://api.bintray.com/conan/${_CONAN_USERNAME}/cpppm
+          conan user -p ${_CONAN_API_KEY} -r cpppm ${_CONAN_USERNAME}
+          conan remove -f cpppm-examples -r cpppm
