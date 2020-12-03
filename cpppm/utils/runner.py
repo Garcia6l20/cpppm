@@ -1,5 +1,6 @@
 import asyncio
-import subprocess as sp
+import os
+import sys
 from pathlib import Path
 from typing import Dict, Union
 
@@ -47,7 +48,7 @@ class Runner:
 
                 rc = proc.returncode
                 if not always_return and rc:
-                    raise ProcessError(err.decode())
+                    raise ProcessError(err.decode(os.device_encoding(sys.stderr.fileno())))
                 return rc, out, err
             else:
                 return 0, None, None

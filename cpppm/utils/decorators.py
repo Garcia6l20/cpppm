@@ -21,12 +21,12 @@ def working_directory(cwd: Path, env: Dict = None, create=True):
                 if env:
                     wrapper.oldenv = os.environ
                     os.environ.update(env)
-                if create:
-                    cwd.mkdir(exist_ok=True)
-                os.chdir(str(cwd.absolute()))
+                # if create:
+                #     cwd.mkdir(exist_ok=True)
+                # os.chdir(str(cwd.absolute()))
 
             def cleanup_env():
-                os.chdir(str(wrapper.prev_cwd))
+                # os.chdir(str(wrapper.prev_cwd))
                 if wrapper.oldenv:
                     os.environ = wrapper.oldenv
 

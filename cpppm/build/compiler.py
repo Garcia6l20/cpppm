@@ -4,8 +4,11 @@ import re
 import shutil
 from abc import abstractmethod
 
+import platform
+
 from cpppm import _get_logger
 from cpppm.config import config
+from cpppm.utils.pathlist import PathList
 from cpppm.utils.runner import Runner, ProcessError
 
 
@@ -49,6 +52,9 @@ class Compiler:
     def is_clang(self):
         return self.toolchain.name in {'clang', 'apple-clang'}
 
+    def is_msvc(self):
+        return self.toolchain.name in {'msvc'}
+
     def source_deps(self, target, source):
         deps = set()
         for line in open(source.absolute(), 'r'):
@@ -79,6 +85,18 @@ class Compiler:
             timestamp.touch(exist_ok=True)
 
     @abstractmethod
+    def make_include_dirs_option(self, include_dirs: PathList):
+        pass
+
+    @abstractmethod
+    def make_link_dirs_option(self, include_dirs: PathList):
+        pass
+
+    @abstractmethod
+    def make_link_option(self, libs):
+        pass
+
+    @abstractmethod
     async def compile_object(self, source, output_path, flags=None, pic=False, test=False):
         pass
 
@@ -87,7 +105,7 @@ class Compiler:
         pass
 
     @abstractmethod
-    async def create_shared_lib(self, output, objs, flags=None, pic=False):
+    async def create_shared_lib(self, output, objs, flags=None, pic=False, lib_path=None):
         pass
 
     @abstractmethod
@@ -96,20 +114,26 @@ class Compiler:
 
     async def compile(self, target: 'cpppm.target.Target', pic=True,
                       force=False):
+        from cpppm import Library
         force = force or Compiler.force
         self._logger.info(f'building {target}')
         output = target.build_path.absolute()
-        opts = set()
+        opts = list()
+        opts.extend(self.make_include_dirs_option(target.include_dirs))
+        # opts.extend(self.make_compile_options(target.compile_definitions))
 
-        opts.update({f'{self.include_path_flag}{str(path)}' for path in target.include_dirs.absolute()})
+        if platform.system() == 'Windows' and \
+                isinstance(target, Library) and \
+                target.shared:
+            opts.append(f'/D{target.macro_name}_DLL_EXPORT=1')
 
         for k, v in target.compile_definitions.items():
             if v is not None:
-                opts.add(f'{self.define_flag}{k}={v}')
+                opts.append(f'{self.define_flag}{k}={v}')
             else:
-                opts.add(f'{self.define_flag}{k}')
+                opts.append(f'{self.define_flag}{k}')
 
-        opts.update(target.compile_options)
+        opts.extend(target.compile_options)
         objs = set()
         compilations = set()
         for source in target.compile_sources.absolute():
@@ -127,37 +151,37 @@ class Compiler:
                 compilations.add(do_compile())
             else:
                 self._logger.info(f'object {out} is up-to-date')
-
         try:
             await asyncio.gather(*compilations)
         except ProcessError as err:
             raise CompileError(err)
 
         if len(compilations):
-            opts = {*self.toolchain.link_flags}
+            opts = [*self.toolchain.link_flags]
             output = target.bin_path.absolute()
             output.parent.mkdir(exist_ok=True, parents=True)
-            opts.update({f'{self.lib_path_flag}{str(d.absolute())}' for d in target.library_dirs})
+            opts.extend(self.make_link_dirs_option(target.library_dirs))
+            lib_names = []
             for lib in target.lib_dependencies:
                 if isinstance(lib, str):
-                    opts.add(f'{self.lib_flag}{lib}')
+                    lib_names.append(lib)
                 elif not lib.is_header_only:
-                    opts.add(f'{self.lib_flag}{lib.name}')
+                    lib_names.append(lib.name)
+            opts.extend(self.make_link_option(lib_names))
             try:
-                if str(output).endswith(self.shared_extension):
-                    # shared library
-                    self._logger.info(f'creating library {output.name}')
-                    await self.create_shared_lib(output, [str(o) for o in objs], list(opts), pic=pic)
-                elif str(output).endswith(self.static_extension):
-                    # archive
-                    self._logger.info(f'creating archive {output.name}')
-                    await self.create_static_lib(str(output), [str(o) for o in objs], None)
+                if isinstance(target, Library) and not target.is_header_only:
+                    if target.shared:
+                        self._logger.info(f'creating library {output.name}')
+                        await self.create_shared_lib(output, objs, list(opts), pic=pic, lib_path=target.lib_path)
+                    else:
+                        self._logger.info(f'creating static library {output.name}')
+                        await self.create_static_lib(output, objs, None)
                 else:
                     # executable
                     self._logger.info(f'linking {output.name}')
                     if self.is_clang():
-                        opts.add(f'-stdlib={config.toolchain.libcxx}')
-                    await self.link_executable(str(output), [str(o) for o in objs], list(opts), pic=pic)
+                        opts.append(f'-stdlib={config.toolchain.libcxx}')
+                    await self.link_executable(output, objs, list(opts), pic=pic)
             except ProcessError as err:
                 raise CompileError(err)
 
@@ -166,16 +190,31 @@ class Compiler:
 
 
 class UnixCompiler(Compiler):
+    build_type_flags = {
+        'Release': ('-O3', '-DNDEBUG'),
+        'Debug': ('-g',),
+        'RelWithDebInfo': ('-O2', '-g', '-DNDEBUG'),
+        'MinSizeRel': ('-Os', '-DNDEBUG'),
+    }
+    object_extension = '.o'
+    static_extension = '.a'
+    shared_extension = '.so'
+    include_path_flag = '-I'
+    lib_path_flag = '-L'
+    lib_flag = '-l'
+    define_flag = '-D'
 
     def __init__(self, toolchain, *args, **kwargs):
-        self.object_extension = '.o'
-        self.static_extension = '.a'
-        self.shared_extension = '.so'
-        self.include_path_flag = '-I'
-        self.lib_path_flag = '-L'
-        self.lib_flag = '-l'
-        self.define_flag = '-D'
         super().__init__(toolchain, *args, **kwargs)
+
+    def make_include_dirs_option(self, include_dirs: PathList):
+        return [f'-I{d}' for d in include_dirs.absolute()]
+
+    def make_link_dirs_option(self, link_dirs: PathList):
+        return [f'-L{d}' for d in link_dirs.absolute()]
+
+    def make_link_option(self, libs):
+        return [f'-l:{lib}' for lib in libs]
 
     async def compile_object(self, source, output_path, flags=None, test=False, pic=False):
         opts = self.toolchain.cxx_flags
@@ -189,7 +228,7 @@ class UnixCompiler(Compiler):
     async def create_static_lib(self, output, objs, flags=None):
         await self.ar_runner.run('rcs', str(output), objs)
 
-    async def create_shared_lib(self, output, objs, flags=None, pic=False):
+    async def create_shared_lib(self, output, objs, flags=None, pic=False, **kwargs):
         flags = flags or []
         if pic:
             flags.append('-fPIC')
@@ -203,31 +242,43 @@ class UnixCompiler(Compiler):
 
 
 class MsvcCompiler(Compiler):
+    build_type_flags = {
+        'Release': ['/O2', '/D NDEBUG', '/MD'],
+        'Debug': ['/O0', '/G'],
+    }
+    object_extension = '.obj'
+    static_extension = '.lib'
+    shared_extension = '.dll'
+    include_path_flag = '/I'
+    lib_path_flag = '/LIBPATH:'
+    lib_flag = '/LIB'
+    define_flag = '/D'
 
-    def __init__(self, toolchain, *args, **kwargs):
-        self.object_extension = '.obj'
-        self.static_extension = '.lib'
-        self.shared_extension = '.dll'
-        self.include_path_flag = '/I'
-        self.lib_path_flag = '/LIBPATH:'
-        self.lib_flag = '/LIB'
-        self.define_flag = '/D'
-        super().__init__(toolchain, *args, **kwargs)
+    def make_include_dirs_option(self, include_dirs: PathList):
+        return [f'/I{d.as_posix()}' for d in include_dirs.absolute()]
+
+    def make_link_dirs_option(self, link_dirs: PathList):
+        return [f'/LIBPATH:{d.as_posix()}' for d in link_dirs.absolute()]
+
+    def make_link_option(self, libs):
+        return [f'{lib}.lib' for lib in libs]
 
     async def compile_object(self, source, output_path, flags=None, test=False, pic=False):
         opts = self.toolchain.cxx_flags
         if flags:
             opts.extend(flags)
         out = output_path / source.with_suffix(self.object_extension).name
-        return await self.cxx_runner.run(*opts, '/c', str(source), str(out), always_return=test)
+        return await self.cxx_runner.run('/nologo', *opts, '/c', str(source.as_posix()), f'/Fo{str(out.as_posix())}',
+                                         always_return=test)
 
     async def create_static_lib(self, output, objs, flags=None):
-        await self.ar_runner.run(*objs, str(output))
+        await self.ar_runner.run('/nologo', *[f'{o.as_posix()}' for o in objs], f'/OUT:{str(output.as_posix())}')
 
-    async def create_shared_lib(self, output, objs, flags=None, pic=False):
+    async def create_shared_lib(self, output, objs, flags=None, lib_path=None, **kwargs):
         flags = flags or []
-        await self.link_runner.run('/DLL', *flags, *objs, f'/OUT:{str(output)}')
+        await self.link_runner.run('/nologo', f'/IMPLIB:{lib_path.as_posix()}', '/dll', *flags, *[f'{o.as_posix()}' for o in objs],
+                                   f'/OUT:{str(output.as_posix())}')
 
     async def link_executable(self, output, objs, flags=None, pic=False):
         flags = flags or []
-        await self.link_runner.run(*flags, *objs, f'/OUT:{str(output)}')
+        await self.link_runner.run('/nologo', *flags, *[f'{o.as_posix()}' for o in objs], f'/OUT:{str(output)}')

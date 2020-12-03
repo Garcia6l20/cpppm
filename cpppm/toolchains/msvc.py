@@ -45,7 +45,7 @@ def _gen_msvc_cache(archs):
             script = tempfile.NamedTemporaryFile(suffix='.bat', delete=False)
             tmp_dir = Path(script.name).parent
             content = f'call "{vcvarsall}" {arch}\r\n'
-            for index, var in enumerate(vars):
+            for index, var in enumerate(vcvars.keys()):
                 content += f'echo {var}=%{var}% {">" if index == 0 else ">>"} {tmp_dir}/cpppm-vcvars-{arch}.dat\r\n'
             script.write(content.encode())
             script.close()
@@ -66,6 +66,7 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
     toolchains = set()
     cache_ = cache.build_root / 'cpppm-msvc-toolchains.cache'
     if not cache_.exists():
+        cache.build_root.mkdir(exist_ok=True, parents=True)
         data = _gen_msvc_cache(archs)
         json.dump(data, open(cache_, 'w'))
     else:
@@ -78,7 +79,7 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
         for cl in find_executables('cl.exe', paths):
             link = cl.parent / 'link.exe'
             as_ = cl.parent / f'ml{"64" if arch == "x64" else ""}.exe'
-            ex = cl.parent / 'lib.exe'
+            ar = cl.parent / 'lib.exe'
 
             here = os.getcwd()
             os.chdir(tempfile.gettempdir())
@@ -91,9 +92,10 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
             from cpppm.build.compiler import MsvcCompiler
             toolchains.add(Toolchain('msvc', compiler_id, arch, cl, cl,
                                      as_=as_,
-                                     ar=ex,
+                                     ar=ar,
                                      link=link,
                                      dbg=None,
                                      cxx_flags=['/EHsc'],
-                                     compiler_class=MsvcCompiler))
+                                     compiler_class=MsvcCompiler,
+                                     env=vcvars))
     return toolchains

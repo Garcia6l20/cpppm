@@ -38,6 +38,10 @@ class Target:
             self.install = bool(kwargs['install'])
 
     @property
+    def macro_name(self):
+        return self.name.upper().replace('-', '_')
+
+    @property
     def header_pattern(self) -> str:
         return '|'.join(pattern for pattern in self._header_pattern)
 

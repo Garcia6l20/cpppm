@@ -25,7 +25,7 @@ class ToolchainId:
 
 class Toolchain:
     def __init__(self, name, compiler_id, arch, cc, cxx, as_, ar, link, nm=None, ex=None, strip=None, dbg=None,
-                 libcxx=None, c_flags=None, cxx_flags=None, link_flags=None, compiler_class=None):
+                 libcxx=None, c_flags=None, cxx_flags=None, link_flags=None, compiler_class=None, env=None):
         self.name = name
         self.compiler_id = compiler_id
         self.arch = arch
@@ -66,13 +66,15 @@ class Toolchain:
             'CXXFLAGS': ' '.join(self.cxx_flags),
             'LDFLAGS': ' '.join(self.link_flags)
         }
+        if env:
+            self.env.update(env)
         self.env_list = []
         for k, v in self.env.items():
             self.env_list.append(f'{k}={v}')
 
     @property
     def conan_version(self):
-        if self.compiler_id.minor == 0:
+        if self.compiler_id.minor == 0 or self.compiler_id.name == 'Visual Studio':
             return self.compiler_id.major
         else:
             return self.compiler_id.major_minor
@@ -81,28 +83,17 @@ class Toolchain:
     def build_type(self):
         return self._build_type
 
-    def apply_build_type(self, value):
-        flags = []
-        if value == 'Release':
-            flags.extend({'-O3', '-DNDEBUG'})
-        elif value == 'Debug':
-            flags.append('-g')
-        elif value == 'RelWithDebInfo':
-            flags.extend({'-O2', '-g', '-DNDEBUG'})
-        elif value == 'MinSizeRel':
-            flags.extend({'-Os', '-DNDEBUG'})
-        self.cxx_flags.extend(flags)
-        self.c_flags.extend(flags)
-
     @build_type.setter
     def build_type(self, value):
-        self.apply_build_type(value)
+        flags = self.compiler_class.build_type_flags[value]
+        self.cxx_flags.extend(flags)
+        self.c_flags.extend(flags)
         self._build_type = value
 
         from cpppm import get_conan
         from conans.client.profile_loader import profile_from_args
         app = get_conan().app
-        profile_args = [f'compiler={self.name}',
+        profile_args = [f'compiler={self.compiler_id.name}',
                         f'compiler.version={self.conan_version}',
                         f'build_type={self._build_type}']
         if self.libcxx:

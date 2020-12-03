@@ -2,6 +2,16 @@
 
 #include <string>
 
+#ifndef _MSC_VER
+#define BASIC_API
+#else
+#ifdef BASIC_DLL_EXPORT
+#define BASIC_API __declspec(dllexport)
+#else
+#define BASIC_API __declspec(dllimport)
+#endif
+#endif
+
 namespace basic {
-extern void say_hello(const std::string&);
+BASIC_API void say_hello(const std::string&);
 }

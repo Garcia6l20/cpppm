@@ -1,9 +1,8 @@
 import ast
 import json
+import os
 import sys
 from typing import Any
-
-from conans.client.profile_loader import profile_from_args
 
 from . import get_conan, _config_option, toolchains, cache
 from .toolchains.toolchain import Toolchain
@@ -134,6 +133,7 @@ class Config:
                 cache.build_root / f'{self.toolchain.id}-{self.build_type}').absolute()
         self.libcxx = self.libcxx or self.toolchain.libcxx
         self.toolchain.build_type = self.build_type
+        os.environ.update(self.toolchain.env)
 
 
 config = Config()

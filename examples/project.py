@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from cpppm import Project, main
+from cpppm.config import config
 
 project = Project('cpppm-examples', '0.0.0')
 
@@ -16,6 +17,9 @@ project.subproject('header_only')
 build_events = project.subproject('build_events')
 
 project.default_executable = build_events.default_executable
+
+if config.toolchain.name == 'msvc':
+    config.toolchain.cxx_flags.append('/std:c++17')
 
 if __name__ == '__main__':
     main()

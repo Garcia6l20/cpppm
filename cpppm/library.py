@@ -42,7 +42,7 @@ class Library(Target):
         if self.is_header_only:
             return None
         if platform.system() == 'Windows':
-            return self._bin_path / self.library
+            return self._bin_path / self.binary
         else:
             return self._lib_path / self.library
 
