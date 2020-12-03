@@ -76,7 +76,6 @@ jobs:
         shell: bash
         run: |
           cd ./test_package
-          conan create . \
-              -s compiler=${{ matrix.config.compiler }} \
-              -s compiler.version=${{ matrix.config.compiler_version }} \
-              -s compiler.libcxx=${{ matrix.config.libcxx }}
+          ./project.py config set toolchain=${{ matrix.config.compiler }}-${{ matrix.config.compiler_version }}-${{ matrix.config.arch }} \
+                                  libcxx=${{ matrix.config.libcxx }}
+          ./project.py -d run

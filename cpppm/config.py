@@ -116,8 +116,7 @@ class Config:
     def _resolve_toolchain(self, settings):
         if settings:
             id_ = f'{settings.get_safe("compiler")}-{settings.get_safe("compiler.version")}-{settings.get_safe("arch")}'
-            self.toolchain = toolchains.get(id_)
-            self.libcxx = settings.get_safe('compiler.libcxx')
+            self.toolchain = toolchains.get(id_, libcxx=settings.get_safe('compiler.libcxx'))
             self.build_type = settings.get_safe('build_type')
         elif self.toolchain is None:
             self.toolchain = toolchains.get_default()
@@ -125,7 +124,7 @@ class Config:
             self.toolchain = toolchains.get(self.toolchain, libcxx=self.libcxx)
         assert issubclass(type(self.toolchain), Toolchain)
         self._build_path = (
-                self._source_path / 'build' / f'{self.toolchain.id}-{self.build_type}').absolute()
+                cache.build_root / f'{self.toolchain.id}-{self.build_type}').absolute()
         self.libcxx = self.libcxx or self.toolchain.libcxx
         self.toolchain.build_type = self.build_type
 
