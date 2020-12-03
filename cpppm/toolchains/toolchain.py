@@ -74,10 +74,7 @@ class Toolchain:
 
     @property
     def conan_version(self):
-        if self.compiler_id.minor == 0 or self.compiler_id.name == 'Visual Studio':
-            return self.compiler_id.major
-        else:
-            return self.compiler_id.major_minor
+        return self.compiler_id.major
 
     @property
     def build_type(self):
