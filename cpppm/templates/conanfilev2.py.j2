@@ -55,6 +55,7 @@ class {{ project.title }}Project(ConanFile):
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.bindirs = ['bin']
+        self.cpp_info.includedirs = ['include']
         self.cpp_info.description = self.description
 
     def test(self):

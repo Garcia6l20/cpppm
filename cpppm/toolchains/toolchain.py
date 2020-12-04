@@ -92,7 +92,8 @@ class Toolchain:
         app = get_conan().app
         profile_args = [f'compiler={self.compiler_id.name}',
                         f'compiler.version={self.conan_version}',
-                        f'build_type={self._build_type}']
+                        f'build_type={self._build_type}',
+                        f'arch_build={self.arch}']
         if self.libcxx:
             profile_args.append(f'compiler.libcxx={self.libcxx}{self.libcxx_abi_version}')
         self.conan_profile = profile_from_args(None,

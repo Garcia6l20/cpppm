@@ -40,7 +40,7 @@ def _get_cl_version(cl):
     from conans.client.conf.compiler_id import MSVC_TO_VS_VERSION, MSVC
     out = sp.check_output(cl, stderr=sp.STDOUT, universal_newlines=True)
     for line in out.splitlines():
-        m = re.search(r'version.(\d+)\.(\d+)\.(\d+)', line, re.IGNORECASE)
+        m = re.search(r'version\D+(\d+)\.(\d+)\.(\d+)', line, re.IGNORECASE)
         if m:
             version = int(f'{m.group(1)}{int(m.group(2)):02}')
             if not version in MSVC_TO_VS_VERSION.keys():
@@ -116,7 +116,7 @@ def _gen_msvc_cache(archs):
 
 
 def find_msvc_toolchains(version=None, archs=None, **kwargs):
-    archs = archs or ['x86_64', 'x86_32']
+    archs = archs or ['x86_64', 'x86']
     toolchains = set()
     cache_ = cache.build_root / 'cpppm-msvc-toolchains.cache'
     if not cache_.exists():

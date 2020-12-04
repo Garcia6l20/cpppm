@@ -15,7 +15,7 @@ class ProcessError(RuntimeError):
 class Runner:
     def __init__(self, executable, cwd: Path = None, env=None, recorder=None, args=None):
         self._logger = _get_logger(self, executable)
-        self.executable = str(executable.absolute()) if isinstance(executable, Path) else executable
+        self.executable = str(executable.absolute().as_posix()) if isinstance(executable, Path) else executable
         self.cwd = cwd
         self.env = env
         self.recorder = recorder
