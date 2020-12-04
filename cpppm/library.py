@@ -72,7 +72,7 @@ class Library(Target):
     def is_header_only(self) -> bool:
         pattern = self.header_pattern
         for source in self.sources:
-            if not re.match(pattern, str(source)):
+            if not re.match(pattern, str(source.as_posix())):
                 return False
         return True
 
@@ -81,7 +81,7 @@ class Library(Target):
         out = PathList(self.source_path)
         pattern = self.public_pattern
         for header in self.headers:
-            if re.match(pattern, str(header)):
+            if re.match(pattern, str(header.as_posix())):
                 out.append(header)
         if self.export_header:
             out.append(self.build_path / Path(self.export_header))

@@ -45,7 +45,7 @@ class PathList:
                 self.append(p)
 
     def absolute(self) -> List[Path]:
-        return [self.root / path for path in self]
+        return [self.root / path.as_posix() for path in self]
 
     def __len__(self):
         return self.paths.__len__()
