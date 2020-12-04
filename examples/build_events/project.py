@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from cpppm import Project, Executable, main, events
+from cpppm.config import config
 
 from ext_example.git import git_config_generator
 
@@ -11,7 +12,6 @@ gen = project.executable('gen_date')
 gen.install = False
 gen.sources = 'src/generator.cpp'
 gen.link_libraries = 'fmt'
-gen.compile_options = '-std=c++17'
 
 exe = project.main_executable()
 exe.sources = 'src/main.cpp'

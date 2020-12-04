@@ -1,5 +1,6 @@
 import copy
 import json
+import logging
 import os
 import re
 import tempfile
@@ -7,7 +8,7 @@ from pathlib import Path
 
 from conans.tools import vswhere
 
-from conans.client.conf.compiler_id import detect_compiler_id
+from conans.client.conf.compiler_id import detect_compiler_id, CompilerId
 from semantic_version import SimpleSpec, Version
 
 from cpppm import cache
@@ -26,12 +27,17 @@ class VisualStudioToolchain:
 def _get_vc_arch(arch):
     m = re.match(r'x86_([\d]{2})', arch)
     if m:
-        return f'x{m.group(1)}'
+        if m.group(1) == '32':
+            return f'x86'
+        else:
+            return f'x64'
     else:
         return arch
 
 
 def _gen_msvc_cache(archs):
+    from cpppm import _logger
+    logger = _logger.getChild('msvc-cache')
     vcvars = {
         "path": None,
         "lib": None,
@@ -64,16 +70,39 @@ def _gen_msvc_cache(archs):
             _, err = p.communicate()
             if p.returncode:
                 raise sp.CalledProcessError(p.returncode, err)
+            valid = True
             with open(tmp_dir / f'cpppm-vcvars-{arch}.dat') as data:
                 for line in data.readlines():
                     k, v = line.split('=')[:2]
-                    vcvars[k] = v.strip()
-            cache_data[arch] = copy.deepcopy(vcvars)
+                    v = v.strip()
+                    if not v:
+                        logger.debug(f'Cannot find vc variable: "{k}"')
+                        # valid = False
+                    vcvars[k] = v
+            if valid:
+                paths = [p for p in vcvars['path'].split(';') if p.startswith(vcvars['VCInstallDir'])]
+                cl = find_executables('cl.exe', paths).pop()
+                if cl:
+                    here = os.getcwd()
+                    os.chdir(tempfile.gettempdir())
+                    compiler_id = detect_compiler_id(f'"{cl}"')
+                    os.chdir(here)
+                    if not compiler_id.major:
+                        raise RuntimeError(f'Cannot detect msvc version of {cl}')
+                    vcvars["cl"] = str(cl.absolute())
+                    vcvars["compiler_id.name"] = compiler_id.name
+                    vcvars["compiler_id.major"] = str(compiler_id.major)
+                    vcvars["compiler_id.minor"] = str(compiler_id.minor)
+                    vcvars["compiler_id.patch"] = str(compiler_id.patch)
+
+                    cache_data[vc_arch] = copy.deepcopy(vcvars)
+                    logger.debug(f'Found msvc toolchain')
+
     return cache_data
 
 
 def find_msvc_toolchains(version=None, archs=None, **kwargs):
-    archs = archs or ['x86', 'x64']
+    archs = archs or ['x86_64', 'x86_32']
     toolchains = set()
     cache_ = cache.build_root / 'cpppm-msvc-toolchains.cache'
     if not cache_.exists():
@@ -89,29 +118,30 @@ def find_msvc_toolchains(version=None, archs=None, **kwargs):
             data.update(_gen_msvc_cache([vc_arch]))
             json.dump(data, open(cache_, 'w'))
 
+        if vc_arch not in data:
+            continue
+
         vcvars = data[vc_arch]
-        paths = [p for p in vcvars['path'].split(';') if p.startswith(vcvars['VCInstallDir'])]
 
-        for cl in find_executables('cl.exe', paths):
-            link = cl.parent / 'link.exe'
-            as_ = cl.parent / f'ml{"64" if arch == "x64" else ""}.exe'
-            ar = cl.parent / 'lib.exe'
+        cl = Path(vcvars["cl"])
+        compiler_id = CompilerId(vcvars["compiler_id.name"],
+                                 int(vcvars["compiler_id.major"]), int(vcvars["compiler_id.minor"]),
+                                 int(vcvars["compiler_id.patch"]))
 
-            here = os.getcwd()
-            os.chdir(tempfile.gettempdir())
-            compiler_id = detect_compiler_id(f'"{cl}"')
-            os.chdir(here)
+        if version and not SimpleSpec(version).match(Version(compiler_id.version)):
+            continue
 
-            if not compiler_id.major or version and not SimpleSpec(version).match(Version(compiler_id.version)):
-                continue
+        link = cl.parent / 'link.exe'
+        as_ = cl.parent / f'ml{"64" if vc_arch == "x64" else ""}.exe'
+        ar = cl.parent / 'lib.exe'
+        from cpppm.build.compiler import MsvcCompiler
+        toolchains.add(Toolchain('msvc', compiler_id, arch, cl, cl,
+                                 as_=as_,
+                                 ar=ar,
+                                 link=link,
+                                 dbg=None,
+                                 cxx_flags=['/EHsc'],
+                                 compiler_class=MsvcCompiler,
+                                 env=vcvars))
 
-            from cpppm.build.compiler import MsvcCompiler
-            toolchains.add(Toolchain('msvc', compiler_id, arch, cl, cl,
-                                     as_=as_,
-                                     ar=ar,
-                                     link=link,
-                                     dbg=None,
-                                     cxx_flags=['/EHsc'],
-                                     compiler_class=MsvcCompiler,
-                                     env=vcvars))
     return toolchains

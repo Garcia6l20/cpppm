@@ -18,8 +18,7 @@ build_events = project.subproject('build_events')
 
 project.default_executable = build_events.default_executable
 
-if config.toolchain.name == 'msvc':
-    config.toolchain.cxx_flags.append('/std:c++17')
+config.toolchain.cxx_flags.append('/std:c++17' if config.toolchain.name == 'msvc' else '-std=c++17')
 
 if __name__ == '__main__':
     main()

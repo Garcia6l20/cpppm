@@ -40,10 +40,6 @@ def available_toolchains(name=None, version=None, archs=None):
     return toolchains
 
 
-if __name__ == '__main__':
-    print(f'{available_toolchains()}')
-
-
 def get_default():
     for find in _toolchain_finders.values():
         toolchain_ = find().pop()

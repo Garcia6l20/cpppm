@@ -132,6 +132,7 @@ class Config:
         self._build_path = (
                 cache.build_root / f'{self.toolchain.id}-{self.build_type}').absolute()
         self.libcxx = self.libcxx or self.toolchain.libcxx
+        self.arch = self.arch or self.toolchain.arch
         self.toolchain.build_type = self.build_type
         os.environ.update(self.toolchain.env)
 

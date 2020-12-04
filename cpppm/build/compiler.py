@@ -42,7 +42,7 @@ class Compiler:
             self._logger.info('using ccache')
         else:
             self.cc_runner = Runner(toolchain.cc, args=args, recorder=self.on_cmd, **kwargs)
-            self.cxx_runner = Runner(toolchain.cxx, args=args, recorder=self.on_cmd, **kwargs)
+            self.cxx_runner = Runner(toolchain.cxx, args=args, recorder=self.on_cmd, **kwargs) if toolchain.cc != toolchain.cxx else self.cc_runner
             self.ar_runner = Runner(toolchain.ar, args=args, recorder=self.on_cmd, **kwargs)
             self.link_runner = Runner(toolchain.link, args=args, recorder=self.on_cmd, **kwargs)
 
