@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import os
+import sys
 import re
 import tempfile
 from pathlib import Path
@@ -34,6 +35,22 @@ def _get_vc_arch(arch):
     else:
         return arch
 
+def _get_cl_version(cl):
+    import subprocess as sp
+    from conans.client.conf.compiler_id import MSVC_TO_VS_VERSION, MSVC
+    out = sp.check_output(cl, stderr=sp.STDOUT, universal_newlines=True)
+    for line in out.splitlines():
+        m = re.search(r'version.(\d+)\.(\d+)\.(\d+)', line, re.IGNORECASE)
+        if m:
+            version = int(f'{m.group(1)}{int(m.group(2)):02}')
+            if not version in MSVC_TO_VS_VERSION.keys():
+                extra_versions = {
+                    1928: (16, 8),
+                }
+                vs_version = extra_versions[version]
+            else:
+                vs_version = MSVC_TO_VS_VERSION[version]
+            return CompilerId(MSVC, vs_version[0], vs_version[1], None)
 
 def _gen_msvc_cache(archs):
     from cpppm import _logger
@@ -83,17 +100,14 @@ def _gen_msvc_cache(archs):
                 paths = [p for p in vcvars['path'].split(';') if p.startswith(vcvars['VCInstallDir'])]
                 cl = find_executables('cl.exe', paths).pop()
                 if cl:
-                    here = os.getcwd()
-                    os.chdir(tempfile.gettempdir())
-                    compiler_id = detect_compiler_id(f'"{cl}"')
-                    os.chdir(here)
-                    if not compiler_id.major:
+                    compiler_id = _get_cl_version(cl)
+                    if not compiler_id:
                         raise RuntimeError(f'Cannot detect msvc version of {cl}')
                     vcvars["cl"] = str(cl.absolute())
                     vcvars["compiler_id.name"] = compiler_id.name
                     vcvars["compiler_id.major"] = str(compiler_id.major)
                     vcvars["compiler_id.minor"] = str(compiler_id.minor)
-                    vcvars["compiler_id.patch"] = str(compiler_id.patch)
+                    vcvars["compiler_id.patch"] = str(compiler_id.patch or 0)
 
                     cache_data[vc_arch] = copy.deepcopy(vcvars)
                     logger.debug(f'Found msvc toolchain')
