@@ -82,9 +82,8 @@ jobs:
           cd ./examples
           conan remote add cpppm https://api.bintray.com/conan/${_CONAN_USERNAME}/cpppm
           conan user -p ${_CONAN_API_KEY} -r cpppm ${_CONAN_USERNAME}
-          args = (-s compiler="${{ matrix.config.compiler }}" \
-                  -s compiler.version="${{ matrix.config.compiler_version }}")
-          conan profile update compiler="${{ matrix.config.compiler }}" compiler.version="${{ matrix.config.compiler_version }}" default
+          conan profile update compiler="${{ matrix.config.compiler }}" default
+          conan profile update compiler.version="${{ matrix.config.compiler_version }}" default
           if [ -z "${{ matrix.config.libcxx }}" ] || conan profile update compiler.libcxx="${{ matrix.config.libcxx }}" default
 
           conan create .
