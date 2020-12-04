@@ -50,8 +50,8 @@ jobs:
         if: startsWith(matrix.config.os, 'windows') != true
         run: |
           sudo apt-get install python3-pip python-is-python3
-          sudo python -m pip install .
-          sudo python -m pip install --upgrade conan
+          sudo python -m pip install --upgrade pip
+          sudo python -m pip install --upgrade .
 
       - name: Set up Python ${{ matrix.python-version }}
         if: startsWith(matrix.config.os, 'windows')
@@ -63,8 +63,8 @@ jobs:
         if: startsWith(matrix.config.os, 'windows')
         shell: bash
         run: |
-          python -m pip install .
-          python -m pip install --upgrade conan
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade .
 
       - name: Build examples
         shell: bash
@@ -83,9 +83,9 @@ jobs:
           conan remote add cpppm https://api.bintray.com/conan/${_CONAN_USERNAME}/cpppm
           conan user -p ${_CONAN_API_KEY} -r cpppm ${_CONAN_USERNAME}
           conan create . \
-              -s compiler=${{ matrix.config.compiler }} \
-              -s compiler.version=${{ matrix.config.compiler_version }} \
-              -s compiler.libcxx=${{ matrix.config.libcxx }}
+              -s compiler="${{ matrix.config.compiler }}" \
+              -s compiler.version="${{ matrix.config.compiler_version }}" \
+              -s compiler.libcxx="${{ matrix.config.libcxx }}"
 
           conan upload -c cpppm-examples -r cpppm --all
           conan remove -f cpppm-examples
