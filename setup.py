@@ -7,7 +7,7 @@ package = "cpppm"
 
 setuptools.setup(
     name=package,
-    version="0.3.0",
+    version="1.0.0",
     license='MIT',
     author="Garcia Sylvain",
     author_email="garcia.6l20@gmail.com",
@@ -36,6 +36,7 @@ setuptools.setup(
         'semantic-version>=2.8.5'
     ],
     extras_require={
-        'interactive': ["IPython>=7.19", 'click-shell>=2.0'],
+        'interactive': ["IPython>=7.19"],
+        'shell': ['click-shell>=2.0'],
     },
 )
