@@ -119,7 +119,9 @@ class Compiler:
         self._logger.info(f'building {target}')
         output = target.build_path.absolute()
         opts = list()
-        opts.extend(self.make_include_dirs_option(target.include_dirs))
+        include_dirs = PathList(target.include_dirs)
+        include_dirs.append(target.build_path)
+        opts.extend(self.make_include_dirs_option(include_dirs))
         # opts.extend(self.make_compile_options(target.compile_definitions))
 
         if platform.system() == 'Windows' and \
@@ -217,11 +219,11 @@ class UnixCompiler(Compiler):
         return [f'-l{lib}' for lib in libs]
 
     async def compile_object(self, source, output_path, flags=None, test=False, pic=False):
-        opts = self.toolchain.cxx_flags
+        opts = set(self.toolchain.cxx_flags)
         if pic:
-            opts.append('-fPIC')
+            opts.add('-fPIC')
         if flags:
-            opts.extend(flags)
+            opts.update(flags)
         out = output_path / source.with_suffix('.o').name
         return await self.cxx_runner.run(*opts, '-c', str(source), '-o', str(out), always_return=test)
 
@@ -229,15 +231,19 @@ class UnixCompiler(Compiler):
         await self.ar_runner.run('rcs', str(output), [str(o) for o in objs])
 
     async def create_shared_lib(self, output, objs, flags=None, pic=False, **kwargs):
-        flags = flags or []
+        opts = set()
+        if flags:
+            opts.update(flags)
         if pic:
-            flags.append('-fPIC')
+            opts.add('-fPIC')
         await self.link_runner.run('-shared', *flags, *[str(o) for o in objs], '-o', str(output))
 
     async def link_executable(self, output, objs, flags=None, pic=False):
-        flags = flags or []
+        opts = set()
+        if flags:
+            opts.update(flags)
         if pic:
-            flags.append('-fPIC')
+            opts.add('-fPIC')
         await self.link_runner.run(*[str(o) for o in objs], *flags, '-o', str(output))
 
 

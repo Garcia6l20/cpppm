@@ -1,10 +1,8 @@
 import logging
 import re
 import shutil
-from abc import abstractmethod
 from pathlib import Path
 
-from conans.client.conf.compiler_id import detect_compiler_id
 from semantic_version import SimpleSpec, Version
 
 from cpppm import detect
@@ -24,10 +22,10 @@ class ToolchainId:
 
 
 class Toolchain:
-    def __init__(self, name, compiler_id, arch, cc, cxx, as_, ar, link, nm=None, ex=None, strip=None, dbg=None,
+    def __init__(self, name, version, arch, cc, cxx, as_, ar, link, nm=None, ex=None, strip=None, dbg=None,
                  libcxx=None, c_flags=None, cxx_flags=None, link_flags=None, compiler_class=None, env=None):
         self.name = name
-        self.compiler_id = compiler_id
+        self.__version = version
         self.arch = arch
         self.cc = cc
         self.cxx = cxx
@@ -53,7 +51,7 @@ class Toolchain:
             else:
                 self.libcxx = libcxx
                 self.libcxx_abi_version = ''
-            if self.compiler_id.name == 'clang':
+            if self.name == 'clang':
                 flag = f'-stdlib={self.libcxx}'
                 self.link_flags.append(flag)
                 self.cxx_flags.append(flag)
@@ -74,7 +72,7 @@ class Toolchain:
 
     @property
     def conan_version(self):
-        return self.compiler_id.major
+        return self.__version.major
 
     @property
     def build_type(self):
@@ -90,10 +88,10 @@ class Toolchain:
         from cpppm import get_conan
         from conans.client.profile_loader import profile_from_args
         app = get_conan().app
-        profile_args = [f'compiler={self.compiler_id.name}',
+        profile_args = [f'compiler={self.name}',
                         f'compiler.version={self.conan_version}',
                         f'build_type={self._build_type}',
-                        f'arch_build={self.arch}']
+                        f'arch={self.arch}']
         if self.libcxx:
             profile_args.append(f'compiler.libcxx={self.libcxx}{self.libcxx_abi_version}')
         self.conan_profile = profile_from_args(None,
@@ -103,27 +101,40 @@ class Toolchain:
 
     @property
     def version(self):
-        return self.compiler_id.version
+        return self.__version
 
     @property
     def major(self):
-        return self.compiler_id.major
+        return self.__version.major
 
     @property
     def id(self):
         return f'{self.name}-{self.conan_version}-{self.arch}'
 
+    def __hash__(self):
+        return self.id.__hash__()
+
+    def __eq__(self, other):
+        if isinstance(other, Toolchain):
+            return other.id == self.id
+        else:
+            return super().__eq__(other)
+
     @property
     def cxx_compiler(self):
         return self.compiler_class(self)
 
-    def __cache_save__(self):
+    @property
+    def object_suffix(self):
+        return self.compiler_class.object_extension
+
+    def __getstate__(self):
         return self.id
 
-    @classmethod
-    def __cache_load__(cls, id_):
+    def __setstate__(self, state):
         from . import get
-        return get(id_)
+        tc = get(state)
+        self.__dict__.update(tc.__dict__)
 
     def details(self):
         return f'''- cc: {self.cc}
@@ -140,14 +151,14 @@ class Toolchain:
         return f'{self.name}\n{self.details()}'
 
 
-def _find_compiler_tool(tool_names, cc_path, compiler_id, tools_prefix=None):
+def _find_compiler_tool(tool_names, cc_path, compiler_name, version, tools_prefix=None):
     if isinstance(tool_names, str):
         tool_names = {tool_names}
     for tool in tool_names:
-        path_list = [cc_path.with_name(f'{compiler_id.name}-{tool}-{compiler_id.major}'),
-                     cc_path.parent / f'{tool}-{compiler_id.major}']
+        path_list = [cc_path.with_name(f'{compiler_name}-{tool}-{version.major}'),
+                     cc_path.parent / f'{tool}-{version.major}']
         if tools_prefix:
-            path_list.insert(0, cc_path.with_name(f'{tools_prefix}-{tool}-{compiler_id.major}'))
+            path_list.insert(0, cc_path.with_name(f'{tools_prefix}-{tool}-{version.major}'))
         for path in path_list:
             if path.exists():
                 return path
@@ -158,44 +169,54 @@ def _find_compiler_tool(tool_names, cc_path, compiler_id, tools_prefix=None):
 
 class UnixToolchain(Toolchain):
 
-    def __init__(self, compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs):
+    def __init__(self, name, version, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs):
         from cpppm.build.compiler import UnixCompiler
 
-        gold = _find_compiler_tool('gold', cc_path, compiler_id, tools_prefix)
+        gold = _find_compiler_tool('gold', cc_path, name, version, tools_prefix)
         if gold:
             if 'link_flags' not in kwargs:
                 kwargs['link_flags'] = []
             kwargs['link_flags'].append('-fuse-ld=gold')
 
-        super().__init__(compiler_id.name, compiler_id, arch, cc_path, cxx_path,
+        super().__init__(name, version, arch, cc_path, cxx_path,
                          as_=cc_path,
-                         nm=_find_compiler_tool('nm', cc_path, compiler_id, tools_prefix),
-                         ar=_find_compiler_tool('ar', cc_path, compiler_id, tools_prefix),
+                         nm=_find_compiler_tool('nm', cc_path, name, version, tools_prefix),
+                         ar=_find_compiler_tool('ar', cc_path, name, version, tools_prefix),
                          link=cxx_path,
-                         strip=_find_compiler_tool('strip', cc_path, compiler_id, tools_prefix),
-                         dbg=_find_compiler_tool(debugger, cc_path, compiler_id, tools_prefix),
+                         strip=_find_compiler_tool('strip', cc_path, name, version, tools_prefix),
+                         dbg=_find_compiler_tool(debugger, cc_path, name, version, tools_prefix),
                          compiler_class=UnixCompiler, **kwargs)
+
+def _get_unix_compiler_version(compiler_path):
+    compiler_path = Path(compiler_path)
+    import subprocess as sp
+    proc = sp.Popen([compiler_path, '--version'], stdout=sp.PIPE, stderr=sp.STDOUT, universal_newlines=True)
+    out, _ = proc.communicate()
+    for line in out.splitlines():
+        m = re.search(r'\s+(\d+)\.(\d+)\.(\d+)', line, re.IGNORECASE)
+        if m:
+            return Version(major=int(m.group(1)), minor=int(m.group(2)), patch=int(m.group(3)))
 
 
 def find_unix_toolchains(cc_name, cxx_name, debugger, archs=None, version=None, tools_prefix=None, **kwargs):
-    toolchains = set()
+    toolchains = list()
     if archs is None:
         archs = [detect.build_arch()]
     for arch in archs:
         for cc_path in find_executables(rf'{cc_name}($|-\d+$)', regex=True):
-            compiler_id = detect_compiler_id(cc_path)
-            if version and not SimpleSpec(version).match(Version(compiler_id.version)):
+            compiler_version = _get_unix_compiler_version(cc_path)
+            if version and not SimpleSpec(version).match(compiler_version):
                 continue
             cxx_path = cc_path.parent / cc_path.name.replace(cc_name, cxx_name)
             if not cxx_path.exists():
                 logging.warning(f'Cannot find cxx path for {cxx_name} (should be: "{cxx_path}")')
                 continue
-            toolchain = UnixToolchain(compiler_id, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs)
+            toolchain = UnixToolchain(cc_name, compiler_version, arch, cc_path, cxx_path, debugger, tools_prefix, **kwargs)
             if arch == 'x86_64':
                 toolchain.cxx_flags.append('-m64')
                 toolchain.c_flags.append('-m64')
             else:
                 toolchain.cxx_flags.append('-m32')
                 toolchain.c_flags.append('-m32')
-            toolchains.add(toolchain)
+            toolchains.append(toolchain)
     return toolchains

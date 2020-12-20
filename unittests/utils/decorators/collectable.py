@@ -1,6 +1,6 @@
 import copy
 import unittest
-from cpppm.utils.decorators import collectable, CollectError
+from cpppm.utils.decorators import collectable, CollectError, list_property
 
 
 class CollectableBaseTestCase(unittest.TestCase):
@@ -97,6 +97,8 @@ class CollectableVariadicTestCase(unittest.TestCase):
         super().__init__(*args, **kwargs)
         self.tested = self.BaseData()
         self.tested.children.append(self.BaseData(1, 2))
+        self.assertTrue(len(self.tested.data) == 2)
+        self.assertTrue(self.tested.data == [1, 2])
         self.tested.children.append(self.BaseData(3, 4))
         sub = self.BaseData()
         self.tested.children.append(self.BaseData(5, 6))
@@ -119,6 +121,38 @@ class CollectableVariadicTestCase(unittest.TestCase):
         tested.children.append(self.SubData('hello', 'world'))
         # permissive collectable shall skip non-accepted types
         self.assertTrue(tested.data == [1, 2, 3, 4, 5, 6, 7, 8, 'hello', 'world'])
+
+
+class CollectableListPropertyTestCase(unittest.TestCase):
+    class BaseData:
+        def __init__(self, *args):
+            self._children = list()
+            self._data = args or list()
+
+        @list_property
+        def children(self):
+            return self._children
+
+        @collectable(children)
+        def data(self):
+            return self._data
+
+        @collectable(children, permissive=True)
+        def permissive_data(self):
+            return self._data
+
+    class SubData(BaseData):
+        pass
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tested = self.BaseData()
+        self.tested.children = self.BaseData(1, 2), self.BaseData(3, 4)
+        sub = self.BaseData()
+        self.tested.children = self.BaseData(5, 6), self.BaseData(7, 8), sub
+
+    def test_nominal(self):
+        self.assertTrue(self.tested.data == [1, 2, 3, 4, 5, 6, 7, 8])
 
 
 if __name__ == '__main__':

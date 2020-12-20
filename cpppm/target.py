@@ -1,10 +1,13 @@
 import asyncio
 import copy
+import hashlib
 import re
 from abc import abstractmethod
 from pathlib import Path
 from typing import List, Set, Tuple, Dict, Union
 
+from . import cache
+from .config import config
 from .utils.decorators import list_property, dependencies_property, collectable
 from .utils.pathlist import PathList
 
@@ -12,27 +15,30 @@ from .utils.pathlist import PathList
 class Target:
     install = True
 
-    def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
+    def __init__(self, name: str, path: Path, build_path=None, **kwargs):
         from .events import Event
         from .project import current_project
         self._bin_path = current_project().bin_path
         self._lib_path = current_project().lib_path
         self.name = name
-        self._source_path = source_path
+        self._path = path
         self._build_path = build_path
+        self._source_path = cache.source_root / path
         self._header_pattern: Set[str] = {r'.*\.h((pp)|(xx)|(h))?$'}
 
-        self._sources = PathList(source_path)
-        self._dependencies = PathList(build_path)
-        self._include_dirs = PathList(source_path, build_path.absolute())
+        self._sources = PathList(self._source_path)
+        self._dependencies = PathList(config.build_path_property, obj=config)
+        self._include_dirs = PathList(self._source_path)
         self._library_dirs = PathList(self._lib_path, '.')
-        self._subdirs = PathList(build_path)
+        self._subdirs = PathList(self.build_path)
         self._link_libraries = set()
         self._compile_options = set()
         self._compile_definitions = dict()
         self.events: List[Event] = []
         self._built = False
         self._build_lock = asyncio.Lock()
+
+        self.build_path.mkdir(parents=True, exist_ok=True)
 
         if 'install' in kwargs:
             self.install = bool(kwargs['install'])
@@ -69,7 +75,7 @@ class Target:
 
     @property
     def build_path(self) -> Path:
-        return self._build_path
+        return self._build_path or config.build_path / self._path
 
     @property
     def bin_path(self) -> Union[Path, None]:

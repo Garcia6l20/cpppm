@@ -1,16 +1,28 @@
 import fnmatch
 import re
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Union
 
 
 class PathList:
-    def __init__(self, root: Path, *paths):
-        self.root = root.resolve()
-        self.paths = []
+    def __init__(self, root: Union[property, Path, 'PathList'], *paths, obj=None):
+        self.paths = set()
         self.events = []
+        if isinstance(root, property):
+            self._root = root
+            self._root_obj = obj
+            assert obj
+        elif isinstance(root, PathList):
+            self._root = root._root
+            self.paths = root.paths
+        else:
+            self._root = root.resolve()
         if paths:
             self.extend(paths)
+
+    @property
+    def root(self):
+        return self._root.__get__(self._root_obj) if isinstance(self._root, property) else self._root
 
     def glob(self, pattern: str):
         self.paths.extend(self.root.glob(pattern))
@@ -28,7 +40,7 @@ class PathList:
         if isinstance(obj, (str, Path)):
             if obj in self.paths:
                 return
-            self.paths.append(Path(obj))
+            self.paths.add(Path(obj))
         elif hasattr(obj, 'event'):
             if obj in self.events:
                 return

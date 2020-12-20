@@ -1,8 +1,13 @@
 import asyncio
 import logging
+import os
 
 from conans.client.conan_api import Conan
-from conans.util.conan_v2_mode import CONAN_V2_MODE_ENVVAR
+try:
+    from conans.util.conan_v2_mode import CONAN_V2_MODE_ENVVAR
+    os.environ[CONAN_V2_MODE_ENVVAR] = "1"
+except ImportError:
+    pass
 
 from jinja2 import Environment, PackageLoader
 
@@ -18,8 +23,6 @@ _config_option = {"--config", "-C"}
 
 _source_path = None
 __build_path = None
-
-os.environ[CONAN_V2_MODE_ENVVAR] = "1"
 
 __conan = Conan()
 

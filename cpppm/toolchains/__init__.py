@@ -1,5 +1,4 @@
 import platform
-import re
 
 from cpppm.toolchains import toolchain
 
@@ -42,11 +41,12 @@ def available_toolchains(name=None, version=None, archs=None):
 
 def get_default():
     for find in _toolchain_finders.values():
-        toolchain_ = find().pop()
+        toolchain_ = find()[0]
         if toolchain_:
             return toolchain_
 
 
 def get(toolchain_id, **kwargs):
     id_ = toolchain.ToolchainId(toolchain_id)
-    return _toolchain_finders[id_.name](version=id_.version, archs=[id_.arch], **kwargs).pop()
+    tc = _toolchain_finders[id_.name](version=id_.version, archs=[id_.arch], **kwargs)[0]
+    return tc

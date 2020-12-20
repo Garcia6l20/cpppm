@@ -192,14 +192,6 @@ class Project:
     def subprojects(self) -> Set['Project']:
         return self._subprojects
 
-    def _target_paths(self, root: str) -> [Path, Path]:
-        root = Path(root) if root is not None else self.source_path
-        if not root.is_absolute():
-            build_root = self.build_path / root
-        else:
-            build_root = self.build_path / root.relative_to(self.source_path)
-        return root.absolute(), build_root.absolute()
-
     def main_executable(self, root: str = None, **kwargs) -> Executable:
         """Add the default project executable (same name as project)
         """
@@ -210,7 +202,8 @@ class Project:
 
     def executable(self, name, root: str = None, **kwargs) -> Executable:
         """Add an executable to the project"""
-        executable = Executable(name, *self._target_paths(root), **kwargs)
+        from cpppm import cache
+        executable = Executable(name, self.source_path.relative_to(cache.source_root), **kwargs)
         self._executables.add(executable)
         self._targets.add(executable)
         return executable
@@ -224,7 +217,8 @@ class Project:
 
     def library(self, name, root: str = None, **kwargs) -> Library:
         """Add a library to the project"""
-        library = Library(name, *self._target_paths(root), **kwargs)
+        from cpppm import cache
+        library = Library(name, self.source_path.relative_to(cache.source_root), **kwargs)
         self._libraries.add(library)
         self._targets.add(library)
         return library

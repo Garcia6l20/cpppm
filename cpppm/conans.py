@@ -56,7 +56,7 @@ class PackageLibrary(Library):
 
     def __init__(self, infos, **kwargs):
         self._infos = PackageInfos(infos)
-        super().__init__(self._infos.name, self._infos.root, self._infos.root, **kwargs)
+        super().__init__(self._infos.name, self._infos.root, build_path=self._infos.root, **kwargs)
         self.include_dirs = self._infos.include_dirs
         self.link_libraries = self._infos.libs
         self.compile_definitions = self._infos.defines

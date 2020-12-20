@@ -4,4 +4,5 @@ conan
 nest_asyncio
 semantic_version
 click-shell
+aiofiles
 ipython

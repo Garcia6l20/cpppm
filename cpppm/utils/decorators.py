@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import os
 from collections.abc import Iterable
 from functools import wraps
@@ -53,25 +54,53 @@ class list_property:
 
     def __init__(self, fget: Callable[[object], Union[List, Set, Mapping]]):
         self.fget = fget
+        self.__on_add = None
+        self.__on_get = None
+
+    def __call__(self, *args, **kwargs):
+        return self
 
     def __get__(self, obj, _obj_type):
+        if self.__on_get:
+            return [self.__on_get(obj, item) for item in self.fget(obj)]
         return self.fget(obj)
 
-    def __set__(self, obj, val):
+    def __set__(self, obj, items):
         prop = self.fget(obj)
         assert type(prop) != tuple
-        if isinstance(val, Iterable) and not isinstance(val, str):
-            if isinstance(prop, (dict, set)):
-                prop.update(val)
-            else:
-                prop.extend(val)
+        if not (isinstance(items, Iterable) and not isinstance(items, str)):
+            if not isinstance(prop, dict):
+                items = {items}
+
+        if self.__on_add:
+            new_items = set()
+            for item in items:
+                new_item = self.__on_add(obj, item)
+                new_items.add(new_item or item)
+            items = new_items
+
+        if isinstance(prop, (dict, set)):
+            prop.update(items)
         else:
-            if isinstance(prop, dict):
-                prop.update(val)
-            elif isinstance(prop, set):
-                prop.add(val)
-            else:
-                prop.append(val)
+            prop.extend(items)
+
+    def on_add(self, callback):
+        self.__on_add = callback
+
+    def on_get(self, callback):
+        self.__on_get = callback
+
+    @property
+    def link(self):
+        return self
+
+
+class filter_property:
+    def __init__(self, fget: Callable[[object], Union[List, Set, Mapping]]):
+        self.fget = fget
+
+    def __get__(self, instance, owner):
+        return self.fget(instance)
 
 
 class dependencies_property(list_property):
@@ -113,8 +142,10 @@ class collectable_property(list_property):
                 return None
             raise CollectError(f'Collecting unexpected recursive type {obj_type!r}')
         collected = self.fget(obj)
-        # collected = type(collected)(collected)
+        collected = type(collected)(collected)
         subs = self.rget(obj) if callable(self.rget) else self.rget.__get__(obj, type(obj))
+        if isinstance(subs, list_property):
+            subs = subs.__get__(obj, type(obj))
         for sub in subs:
             prop = self.__get__(sub, type(sub))
             if prop is None:

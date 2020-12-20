@@ -173,11 +173,6 @@ def config_group():
     pass
 
 
-def _ac_get_config_keys():
-    from cpppm.config import config
-    return config.keys
-
-
 @config_group.command('set')
 @click.argument('items', nargs=-1)
 @click.pass_context
@@ -185,11 +180,11 @@ async def config_set(ctx, items):
     """Modify configuration value(s)."""
     config = ctx.obj
     config.set(*items)
-    config.save()
+    config.cache_save()
 
 
 @config_group.command('doc')
-@click.argument('items', nargs=-1, type=click.Choice(_ac_get_config_keys()))
+@click.argument('items', nargs=-1)
 @click.pass_context
 async def config_doc(ctx, items):
     """Display configuration documentation."""
@@ -198,12 +193,20 @@ async def config_doc(ctx, items):
 
 
 @config_group.command('show')
-@click.argument('items', nargs=-1, type=click.Choice(_ac_get_config_keys()))
+@click.argument('items', nargs=-1)
 @click.pass_context
 async def config_show(ctx, items):
     """Show current configuration value(s)."""
     config = ctx.obj
     config.show(*items)
+
+
+@cli.command()
+@click.pass_context
+async def ls(ctx):
+    """List targets."""
+    for target in root_project().targets:
+        click.echo(f'{target}')
 
 
 @cli.command()

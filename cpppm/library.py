@@ -11,9 +11,9 @@ from .utils.pathlist import PathList
 class Library(Target):
     static: bool = False
 
-    def __init__(self, name: str, source_path: Path, build_path: Path, **kwargs):
+    def __init__(self, name: str, path: Path, **kwargs):
         from . import Executable
-        super().__init__(name, source_path, build_path, **kwargs)
+        super().__init__(name, path, **kwargs)
         self.export_header = None
         self._public_pattern: Set[str] = {r'(.*/)?include/.+'}
         self._tests: Set[Executable] = set()

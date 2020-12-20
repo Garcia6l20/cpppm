@@ -1,9 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include <spdlog/spdlog.h>
+#include <fmt/format.h>
 
 TEST_CASE("cpppm_loves_conan") {
-    spdlog::info("Hi spdlog !");
+    fmt::print("Hi fmt !");
     CHECK(fmt::format("{1} loves {0} !!!", "conan", "cpppm") == "cpppm loves conan !!!");
 }
